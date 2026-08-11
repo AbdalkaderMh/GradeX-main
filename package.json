@@ -1,0 +1,12 @@
+{
+  "name": "gradex-main",
+  "version": "1.0.0",
+  "description": "GradeX is a professional full-stack MERN application designed to streamline student grade management, department organization, and academic results tracking. It features an intelligent admin-controlled Excel upload system with automated metadata extraction.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

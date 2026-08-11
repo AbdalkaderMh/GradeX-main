@@ -1,0 +1,457 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); color: var(--color-text-primary); }
+.tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.5rem; overflow-x: auto; }
+.tab { padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--color-text-secondary); border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; }
+.tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); }
+.tab:hover { color: var(--color-text-primary); }
+.section { display: none; }
+.section.active { display: block; }
+.item { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; }
+.item-head { display: flex; align-items: flex-start; gap: 10px; }
+.badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--border-radius-md); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.crit { background: var(--color-background-danger); color: var(--color-text-danger); }
+.high { background: var(--color-background-warning); color: var(--color-text-warning); }
+.med { background: var(--color-background-info); color: var(--color-text-info); }
+.low { background: var(--color-background-success); color: var(--color-text-success); }
+.item-title { font-size: 14px; font-weight: 500; line-height: 1.4; }
+.item-body { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; margin-top: 6px; }
+code { font-family: var(--font-mono); font-size: 12px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px; }
+.legend { display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-secondary); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.d-crit { background: var(--color-background-danger); border: 1px solid var(--color-border-danger); }
+.d-high { background: var(--color-background-warning); border: 1px solid var(--color-border-warning); }
+.d-med { background: var(--color-background-info); border: 1px solid var(--color-border-info); }
+.d-low { background: var(--color-background-success); border: 1px solid var(--color-border-success); }
+.expand-btn { font-size: 12px; color: var(--color-text-info); cursor: pointer; margin-top: 6px; display: inline-block; border: none; background: none; padding: 0; }
+.detail { display: none; margin-top: 8px; font-size: 12px; color: var(--color-text-secondary); background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; line-height: 1.7; }
+.detail.open { display: block; }
+pre.snippet { font-family: var(--font-mono); font-size: 11px; margin-top: 6px; white-space: pre-wrap; opacity: .85; }
+</style>
+
+<h2 class="sr-only">GradeX platform improvement plan organized by category and priority</h2>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot d-crit"></div> Critical / security</div>
+  <div class="legend-item"><div class="dot d-high"></div> High priority</div>
+  <div class="legend-item"><div class="dot d-med"></div> Medium</div>
+  <div class="legend-item"><div class="dot d-low"></div> Nice to have</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="show('security')">Security</button>
+  <button class="tab" onclick="show('bugs')">Bugs</button>
+  <button class="tab" onclick="show('perf')">Performance</button>
+  <button class="tab" onclick="show('ux')">UX & Design</button>
+  <button class="tab" onclick="show('code')">Code quality</button>
+  <button class="tab" onclick="show('features')">New features</button>
+</div>
+
+<div id="security" class="section active">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge crit">Critical</span>
+      <div>
+        <div class="item-title">Reset tokens use Math.random() — not cryptographically safe</div>
+        <div class="item-body">In <code>authController.js</code>, reset tokens are built with two <code>Math.random().toString(36)</code> calls. This is predictable and brute-forceable.</div>
+        <button class="expand-btn" onclick="toggle(this)">Show fix ↓</button>
+        <div class="detail">Replace with Node's built-in <code>crypto</code>:
+<pre class="snippet">import { randomBytes } from "crypto";
+const token = randomBytes(32).toString("hex");</pre>
+This gives 256 bits of entropy vs the current ~70 bits.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge crit">Critical</span>
+      <div>
+        <div class="item-title">No rate limiting on password reset endpoint</div>
+        <div class="item-body">The <code>POST /api/auth/reset-password</code> route has no rate limiter applied. An attacker can trial millions of short tokens quickly. Apply the <code>authLimiter</code> already defined in <code>server.js</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge crit">Critical</span>
+      <div>
+        <div class="item-title">Auto-created admin in server.js with a hardcoded password</div>
+        <div class="item-body">The <code>createAdminIfMissing()</code> function creates <code>admin01</code> with password <code>Admin@123</code> on every cold start if no admin exists. In production anyone who sees the code can log in before the real admin changes the password.</div>
+        <button class="expand-btn" onclick="toggle(this)">Recommendation ↓</button>
+        <div class="detail">Remove this entirely and rely on the <code>POST /api/auth/setup/admin</code> endpoint (which is already guarded by <code>ADMIN_SETUP_KEY</code>) for first-run setup. If you keep it, at minimum read the password from an env variable: <code>process.env.DEFAULT_ADMIN_PASSWORD</code>, refuse to start if it is missing, and force <code>requiresPasswordChange: true</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Support inbox returns all messages regardless of role</div>
+        <div class="item-body">In <code>supportController.js → getMessages</code>, the query for non-admin users filters by <code>studentId: req.user.id</code> — but this is the User _id, while <code>SupportMessage.studentId</code> stores the User _id too (no profile lookup). This works for students but <strong>any teacher</strong> hits the same route and currently sees nothing because their userId never matches a studentId. More importantly, the frontend calls <code>/support/all</code> without role awareness, meaning the filter logic is only on the server. Tighten this.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">No Helmet CSP header configured</div>
+        <div class="item-body">Helmet is used but <code>contentSecurityPolicy</code> is not configured — it defaults to a broad policy. Add an explicit CSP to prevent XSS escalation, especially since the app renders arbitrary student names from the database into the DOM.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">JWT carries role in payload — not re-validated against DB on every request</div>
+        <div class="item-body">The <code>protect</code> middleware looks up the user from the DB on every request, which is good. But the <code>authorize</code> middleware uses <code>req.user.role</code> from the DB record, so a role change is reflected immediately — this part is fine. The issue is that <code>user.status</code> check happens but <code>user.role</code> changes are not propagated to existing tokens (no role version). Consider adding a <code>roleVersion</code> alongside <code>tokenVersion</code>.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="bugs" class="section">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge crit">Bug</span>
+      <div>
+        <div class="item-title">Settings page calls showNotification but never imports it</div>
+        <div class="item-body">In <code>Settings.jsx</code>, <code>showNotification("تم تحديث الإعدادات بنجاح", "success")</code> is called inside <code>handleUpdate</code> and <code>handleLogoUpload</code> but the hook is never destructured. This throws a runtime error silently on save.</div>
+        <button class="expand-btn" onclick="toggle(this)">Fix ↓</button>
+        <div class="detail"><pre class="snippet">const { showNotification } = useNotification();</pre>Add this line at the top of the component alongside <code>const { refreshSettings } = useAuth()</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge crit">Bug</span>
+      <div>
+        <div class="item-title">Logout redirects to /login which doesn't exist</div>
+        <div class="item-body">In <code>AuthContext.jsx → logout()</code>, the redirect is <code>window.location.href = "/login"</code>. Your router has no <code>/login</code> route — the login page is at <code>/</code>. This results in the wildcard route catching the redirect and bouncing to <code>/</code> anyway, but only after a flash. Change to <code>window.location.href = "/"</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">useUploadFlow.js hook is written but never used</div>
+        <div class="item-body">A well-structured two-step upload hook exists at <code>hooks/useUploadFlow.js</code> but <code>AdminDashboard.jsx</code> reimplements the same logic inline with its own state. The hook also uses a different API base path (<code>/admin/upload-preview</code> without <code>/api</code>) that would fail. Either use the hook or delete it — the duplication will cause divergence.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">confirmUpload doesn't pass subjectName in the hook</div>
+        <div class="item-body">In <code>useUploadFlow.js → confirmUpload</code>, the POST body uses <code>summary.grade</code> and <code>summary.department</code> but the backend's <code>confirmUpload</code> controller reads <code>req.body.subjectName</code> and <code>req.body.isPublished</code> — neither of which the hook sends. The hook is broken by design.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Student rank calculation runs a separate count query per student (N+1)</div>
+        <div class="item-body">In <code>adminUploadController.js → getStudents</code> fallback, <code>Student.countDocuments</code> is called inside a <code>Promise.all(paginated.map(...))</code>. For 50 students per page that's 50 extra DB queries. The aggregation path avoids this with <code>$setWindowFields</code>, but the fallback is used in older MongoDB.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Certificate component receives wrong data shape</div>
+        <div class="item-body">In <code>StudentDashboard.jsx</code>, <code>&lt;Certificate student={data} /&gt;</code> is passed but <code>Certificate.jsx</code> maps <code>subject.grade</code> and <code>subject.details['درجة الفصل الأول']</code>. The actual student data uses <code>subject.currentScore</code> and <code>subject.details</code> as a Map. The certificate will render empty grade cells for every student.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="perf" class="section">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">bulkCreateStudents processes students one-by-one in a for-loop</div>
+        <div class="item-body">In <code>adminUploadController.js → bulkCreateStudents</code>, each student triggers two sequential <code>await</code> calls (User.create + Student.create) inside a serial loop. For 200 students this means ~400 sequential DB round-trips. Use <code>insertMany</code> in batches or at minimum <code>Promise.all</code> with concurrency limiting.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">No database indexes on frequently queried fields</div>
+        <div class="item-body">Fields like <code>Student.grade</code>, <code>Student.department</code>, <code>Student.section</code>, and <code>Student.isPublished</code> have no compound index but are used together in every admin filter query. Add a compound index: <code>{ grade: 1, department: 1, section: 1, average: -1 }</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Notification EventEmitter leaks on large deployments</div>
+        <div class="item-body">The <code>notificationEvents</code> EventEmitter in <code>utils/events.js</code> has no <code>setMaxListeners</code> call. With many concurrent SSE connections it will emit Node.js memory leak warnings. Set <code>notificationEvents.setMaxListeners(0)</code> or use a proper pub/sub adapter for multi-process deployments.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Admin dashboard fetches stats and options independently on every mount</div>
+        <div class="item-body">The 60-second in-memory cache in <code>AdminDashboard.jsx</code> is per-component instance and is lost on unmount. Use React Query, SWR, or a global Zustand/Context store so navigating away and back doesn't re-fetch. This also applies to the options dropdown which is fetched on 4 different pages independently.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge low">Low</span>
+      <div>
+        <div class="item-title">Images are served via express.static with no cache headers</div>
+        <div class="item-body">Uploaded avatars and logos are served with default no-cache headers. Add <code>express.static(uploadsDir, { maxAge: '7d' })</code> since filenames are timestamp-based and change on each upload.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="ux" class="section">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Destructive actions use window.confirm() — replace with custom modals</div>
+        <div class="item-body">Delete student, bulk publish, and delete subject all use the browser's native <code>window.confirm()</code> dialog. This breaks your polished RTL design, can't be styled, and is blocked in some embedded contexts. Create a reusable <code>&lt;ConfirmModal&gt;</code> component consistent with your existing modal style.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Mobile layout: main content overlaps sidebar on scroll</div>
+        <div class="item-body">The sidebar uses <code>fixed right-0</code> with a <code>z-40</code> backdrop, but on mobile the main content has <code>pt-20</code> assuming only the top navbar, not accounting for the sidebar trigger state. Test the ManageStudents and AdminDashboard pages on a 375px viewport — the table overflows horizontally and the sticky header overlaps content.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Empty states are inconsistent across pages</div>
+        <div class="item-body">Some pages show a nice illustrated empty state (StudentDashboard), others show raw italic text inside a table cell, and TeacherDashboard shows nothing at all when stats is empty. Standardize with a shared <code>&lt;EmptyState icon="..." title="..." message="..." /&gt;</code> component.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Notification panel closes on any outside click but not on ESC key</div>
+        <div class="item-body">The notifications dropdown in <code>Navbar.jsx</code> toggles on button click but has no <code>useEffect</code> listener for outside clicks or the Escape key. Users expect to close any open popover with Escape. Also, clicking inside the notification panel should not close it.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Upload flow gives no progress indication for large files</div>
+        <div class="item-body">The upload triggers a full-page spinner overlay with no progress percentage. For a 10MB Excel file on a slow connection this looks like a hang. Use Axios's <code>onUploadProgress</code> callback to show a real progress bar inside the drop zone.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Teacher dashboard shows no feedback when file has parse errors</div>
+        <div class="item-body">The preview response includes an <code>errors</code> array from the parser (e.g. "Could not find Grade column"). The TeacherDashboard discards this array completely — errors are never shown to the teacher. Display them as a dismissible warning panel below the upload form.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge low">Low</span>
+      <div>
+        <div class="item-title">Dark mode preference is not synced across tabs</div>
+        <div class="item-body">The theme toggle in Navbar writes to localStorage and sets a DOM attribute, but uses a local <code>useState</code>. Opening the app in a second tab won't inherit the theme until a manual toggle. Use a <code>storage</code> event listener to sync the preference across tabs.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="code" class="section">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">adminUploadController.js is 550+ lines — split it into domain controllers</div>
+        <div class="item-body">This single file handles students CRUD, teachers CRUD, bulk operations, analytics, settings, logo upload, and notifications. Extract into: <code>studentController.js</code>, <code>teacherController.js</code>, <code>settingsController.js</code>, <code>analyticsController.js</code>. Routes stay the same — just import from different files.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Dropdown options fetched on 4+ separate pages with no shared cache</div>
+        <div class="item-body">AdminDashboard, ManageStudents, TeacherDashboard, EditStudentModal, and TeacherApproval all independently call <code>GET /admin/options</code>. Lift this into a React Context (e.g. <code>OptionsContext</code>) fetched once at app init and reused everywhere.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">getSettings() creates a Settings document if missing — unexpected side effect</div>
+        <div class="item-body">The helper in <code>adminUploadController.js</code> silently creates a Settings record as a side effect of a GET request. This violates the principle of least astonishment and can create orphaned documents. Move the creation to application startup (alongside <code>createAdminIfMissing</code>) and throw in <code>getSettings</code> if none is found.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Inline prompt() used in Settings.jsx for adding list items</div>
+        <div class="item-body">The <code>addItem</code> function calls <code>window.prompt()</code> — a modal dialog that blocks the tab and can't be styled. In RTL it renders LTR, which looks broken. Replace with an inline input + add button pattern within the settings card.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">No global API error handling beyond 401 redirect</div>
+        <div class="item-body">The Axios interceptor in <code>api/axios.js</code> only handles 401. Errors like 403 (forbidden), 429 (rate limited), or 500 (server crash) reach components as raw Axios errors with no shared handling. Add a response interceptor that shows a <code>showNotification</code> toast for common error codes before re-throwing.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge low">Low</span>
+      <div>
+        <div class="item-title">No environment validation at startup</div>
+        <div class="item-body">Only <code>JWT_SECRET</code> length is validated. Missing <code>MONGO_URI</code>, <code>ADMIN_SETUP_KEY</code>, or <code>PORT</code> fail silently or produce cryptic errors. Add a startup check that lists all required env vars and exits with a clear message if any are absent.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="features" class="section">
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Audit log: record who changed what and when</div>
+        <div class="item-body">There is no record of which admin or teacher uploaded grades, approved a teacher, or changed a student's score. Add an <code>AuditLog</code> model with fields: <code>actor</code> (userId), <code>action</code>, <code>target</code>, <code>diff</code>, <code>timestamp</code>. Display it in an admin-only Activity tab.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge high">High</span>
+      <div>
+        <div class="item-title">Bulk publish confirmation preview before applying</div>
+        <div class="item-body">The bulk publish button in ManageStudents applies immediately to potentially hundreds of students. Add a preview step: "You are about to publish results for 143 students in Grade 3 / Electrical Engineering. Continue?" — with a count of currently unpublished students affected.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Student score history / rounds tracking</div>
+        <div class="item-body">The data model tracks <code>previousScore</code> vs <code>currentScore</code> for one round only. Add a <code>history: [{ round, score, uploadedAt }]</code> array per subject so students can see how they progressed across all rounds, and teachers can see trend lines.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Excel template download for correct upload format</div>
+        <div class="item-body">Teachers frequently upload wrongly formatted files, causing the parser to fail. Provide a "Download template" button that generates a correctly structured Excel file pre-filled with the expected column headers so teachers know exactly what format to use.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge med">Medium</span>
+      <div>
+        <div class="item-title">Per-student individual result sharing via secure link</div>
+        <div class="item-body">Admins currently must share credentials with every student. Add a "Share result" feature that generates a time-limited public link (no login required) for a specific student's published result — useful for parents or external institutions.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="badge low">Low</span>
+      <div>
+        <div class="item-title">Class-wide analytics export (PDF report per grade/department)</div>
+        <div class="item-body">Teachers and admins can see analytics on screen but cannot export them. Add a server-side PDF report generator (using <code>pdfkit</code> or <code>puppeteer</code>) that produces a formatted grade summary per class, including pass rate, top performers, and subject averages.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+function toggle(btn) {
+  const detail = btn.nextElementSibling;
+  detail.classList.toggle('open');
+  btn.textContent = detail.classList.contains('open') ? 'Hide ↑' : 'Show fix ↓';
+}
+</script>
