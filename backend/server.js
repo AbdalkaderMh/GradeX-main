@@ -11,6 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import { notificationEvents } from "./utils/events.js";
+import Settings from "./models/Settings.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,10 +25,7 @@ if (missingEnv.length) {
   console.error(
     `❌ Missing required environment variables: ${missingEnv.join(", ")}`
   );
-  console.error("   Add them to your .env file before starting the server.");
-  process.exit(1);
 }
-
 
 // Fix EventEmitter memory leak warning for concurrent SSE connections
 notificationEvents.setMaxListeners(0);
@@ -39,24 +37,6 @@ import studentRoutes from "./routes/studentRoutes.js";
 import supportRoutes from "./routes/supportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 
-dotenv.config();
-const startServer = async () => {
-  try {
-    await connectDB();
-
-    await normalizeExistingUsers();
-    await ensureAdminExists();
-
-    app.listen(PORT, () => {
-      console.log(`🔥 Server running on http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error("❌ Failed to start server:", err);
-    process.exit(1);
-  }
-};
-
-startServer();
 const app = express();
 
 // Security Middleware
@@ -131,7 +111,7 @@ const authLimiter = rateLimit({
 app.use("/api/", apiLimiter);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/setup/admin", authLimiter);
-app.use("/api/auth/reset-password", authLimiter); // FIX: was missing
+app.use("/api/auth/reset-password", authLimiter);
 
 app.get("/", (_req, res) => res.send("API is running..."));
 
@@ -163,36 +143,26 @@ const ensureAdminExists = async () => {
     const existingAdmin = await User.findOne({
       $or: [{ role: "admin" }, { username: "admin" }],
     });
-    if (existingAdmin) {
-      console.log("✅ Admin already exists");
-      return;
-    }
+    if (existingAdmin) return;
 
     const adminPassword = process.env.ADMIN_PASSWORD || "Admin@123";
 
-    const admin = await User.create({
+    await User.create({
       name: "System Admin",
       username: "admin",
-      password: adminPassword, // 🔥 hashing يتم تلقائي
+      password: adminPassword,
       role: "admin",
       status: "approved",
-      requiresPasswordChange: true, // 👈 يخليه يغير الباسورد أول مرة
+      requiresPasswordChange: true,
     });
 
-    console.log("🔥 Initial admin created!");
-    console.log("👤 Username: admin");
-    if (process.env.NODE_ENV !== "production") {
-      console.log("👤 Username: admin");
-      console.log(`🔑 Password: ${adminPassword}`);
-    }
+    console.log("🔥 Initial admin created! Username: admin");
   } catch (err) {
     console.error("❌ Error creating admin:", err.message);
   }
 };
 
 // ── System Initialization ───────────────────────────────────────
-import Settings from "./models/Settings.js";
-
 const normalizeExistingUsers = async () => {
   try {
     let settings = await Settings.findOne();
@@ -211,47 +181,40 @@ const normalizeExistingUsers = async () => {
     if (!settings.normalizedAt) {
       const users = await User.find({ normalizedName: { $exists: false } });
       if (users.length > 0) {
-        console.log(`⏳ Normalizing ${users.length} existing names...`);
         for (const user of users) {
-          await user.save(); // pre-save hook handles normalization
+          await user.save();
         }
-        console.log("✅ Normalization complete");
       }
       settings.normalizedAt = new Date();
       await settings.save();
-    }
-
-    if (mongoose.connection.readyState === 1) {
-      for (const collName of ["students", "teachers"]) {
-        try {
-          const col = mongoose.connection.db.collection(collName);
-          const indexes = await col.indexes();
-          for (const idx of indexes) {
-            if (idx.unique && idx.name !== "_id_" && idx.name !== "userId_1") {
-              console.log(
-                `🗑️  Dropping stale unique index '${idx.name}' from ${collName}`
-              );
-              await col.dropIndex(idx.name);
-            }
-          }
-        } catch (e) {
-          console.log(`ℹ️  ${collName}: ${e.message}`);
-        }
-      }
     }
   } catch (err) {
     console.error("❌ Initialization error:", err.message);
   }
 };
 
-// Start server
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, async () => {
-  await normalizeExistingUsers();
-
-  // 🔥 هنا الإضافة المهمة
-  await ensureAdminExists();
-
-  console.log(`🔥 Server running on http://localhost:${PORT}`);
+// ── Serverless-safe DB connection + init (runs once per cold start) ──
+let isInitialized = false;
+app.use(async (_req, _res, next) => {
+  if (!isInitialized) {
+    await connectDB();
+    await normalizeExistingUsers();
+    await ensureAdminExists();
+    isInitialized = true;
+  }
+  next();
 });
+
+// ── Local dev only: start a real server ───────────────────────────
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, async () => {
+    await connectDB();
+    await normalizeExistingUsers();
+    await ensureAdminExists();
+    isInitialized = true;
+    console.log(`🔥 Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
