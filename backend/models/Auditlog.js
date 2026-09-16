@@ -13,7 +13,7 @@ const auditLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      enum: [
+    enum: [
         "upload_grades",
         "publish_results",
         "unpublish_results",
@@ -25,6 +25,7 @@ const auditLogSchema = new mongoose.Schema(
         "bulk_publish",
         "approve_teacher",
         "create_teacher",
+        "delete_teacher",
         "update_settings",
       ],
     },

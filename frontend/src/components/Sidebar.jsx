@@ -92,7 +92,7 @@ export default function Sidebar({ role, isOpen, onClose }) {
               className={`flex flex-row-reverse items-center justify-start gap-4 py-3 px-6 transition-all ${location.pathname === "/admin/teachers" ? 'bg-blue-100/50 text-blue-700 border-r-4 border-blue-600 font-bold' : 'text-slate-600 hover:bg-slate-200'}`}
             >
               <span className="material-symbols-outlined">group_add</span>
-              <span className="text-sm">إدارة المعلمين</span>
+              <span className="text-sm">إدارة المدرسين </span>
             </Link>
             <Link
               to="/admin/activity"

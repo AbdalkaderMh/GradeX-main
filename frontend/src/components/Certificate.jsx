@@ -4,7 +4,7 @@ const Certificate = ({ student, settings }) => {
   if (!student) return null;
 
   const schoolName = settings?.schoolName || "إعدادية هيت المهنية";
-  const academicYear = student.academicYear || "2025 - 2026";
+  const academicYear = student.academicYear || "2026 - 2027";
 
   // Calculate the result (Pass/Fail)
   const isPassing = (grade) => parseFloat(grade) >= 50;
@@ -87,12 +87,14 @@ const Certificate = ({ student, settings }) => {
                     <tr key={index} className="h-10">
                         <td className="border border-black text-center font-bold text-xs">{index + 1}</td>
                         <td className="border border-black px-3 font-bold text-sm">{subject.name}</td>
+                           <td className="border border-black text-center font-black bg-black/5">{subject.currentScore}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الفصل الأول'] || subject.details?.['الفصل الأول'] || ''}</td>
+                     
                         <td className="border border-black text-center font-black">{subject.details?.['نصف السنة'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الفصل الثاني'] || subject.details?.['الفصل الثاني'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['السعي السنوي'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['الامتحان النهائي'] || ''}</td>
-                        <td className="border border-black text-center font-black bg-black/5">{subject.currentScore}</td>
+                       
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الإكمال'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['بعد الإكمال'] || ''}</td>
                     </tr>

@@ -21,7 +21,8 @@ import {
     createTeacher,
     getPendingTeachers,
     approveTeacher,
-    getTeacherStats
+    getTeacherStats,
+    deleteTeacher
 } from "../controllers/teacherController.js";
 import {
     getDropdownOptions,
@@ -67,7 +68,7 @@ router.post("/bulk-create-students", protect, adminOnly, upload.single("file"), 
 router.get("/students", protect, adminOnly, getStudents);
 router.put("/students/:id", protect, adminOnly, updateStudentValidator, updateStudent);
 router.delete("/students/:id", protect, adminOnly, deleteStudent);
-router.get("/options", protect, staffOnly, getDropdownOptions);
+router.get("/options", protect, getDropdownOptions);
 router.put("/options", protect, adminOnly, updateOptions);
 router.post("/upload-logo", protect, adminOnly, upload.single("logo"), uploadLogo);
 router.put("/approve-teacher/:teacherId", protect, adminOnly, approveTeacher);
@@ -75,6 +76,7 @@ router.get("/stats", protect, adminOnly, getStats);
 router.get("/teacher-stats", protect, teacherOnly, getTeacherStats);
 router.get("/teachers", protect, adminOnly, getTeachers);
 router.post("/teachers", protect, adminOnly, createTeacherValidator, createTeacher);
+router.delete("/teachers/:id", protect, adminOnly, deleteTeacher);
 router.get("/pending-teachers", protect, adminOnly, getPendingTeachers);
 router.get("/export-students", protect, adminOnly, exportStudents);
 router.post("/bulk-publish", protect, adminOnly, bulkUpdatePublishStatus);

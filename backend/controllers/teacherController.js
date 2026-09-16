@@ -160,5 +160,35 @@ export const getTeacherStats = async (req, res) => {
         res.json(stats);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }};
+    
+/**
+ * DELETE TEACHER (Admin)
+ */
+export const deleteTeacher = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user || user.role !== "teacher") {
+            return res.status(404).json({ message: "المعلم غير موجود" });
+        }
+
+        await Teacher.findOneAndDelete({ userId: id });
+        await User.findByIdAndDelete(id);
+
+        await AuditLog.create({
+            actor: req.user._id,
+            actorName: req.user.name,
+            actorRole: req.user.role,
+            action: "delete_teacher",
+            target: `المعلم: ${user.name}`,
+            details: {}
+        });
+
+        res.json({ message: "تم حذف المعلم بنجاح" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
+
 };

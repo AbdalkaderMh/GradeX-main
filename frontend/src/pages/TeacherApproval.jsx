@@ -60,8 +60,25 @@ export default function TeacherApproval() {
       }
   }
 
+//   const handleSubjectChange = (id, value) => {
+//     // ظظظظظظظظظظظظظظظظظظظ
+
+//     // طططططططططططط
+//     setEditingSubjects(prev => ({ ...prev, [id]: value }));
+//   };
   const handleSubjectChange = (id, value) => {
     setEditingSubjects(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleDeleteTeacher = async (id, name) => {
+      if (!window.confirm(`هل أنت متأكد من حذف المعلم "${name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+      try {
+          await api.delete(`/admin/teachers/${id}`);
+          showNotification("تم حذف المعلم بنجاح", "success");
+          fetchTeachers();
+      } catch (err) {
+          showNotification("فشل حذف المعلم", "error");
+      }
   };
 
   if (loading) return <div className="p-10 text-center animate-pulse">جاري التحميل...</div>;
@@ -73,14 +90,14 @@ export default function TeacherApproval() {
       <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
             <h2 className="text-4xl font-extrabold text-on-surface font-headline tracking-tight mb-2">إدارة المعلمين</h2>
-            <p className="text-on-surface-variant max-w-2xl">إدارة حسابات المعلمين وتخصيص المواد الأكاديمية.</p>
+            <p className="text-on-surface-variant max-w-2xl">إدارة حسابات المدرسين وتخصيص المواد الأكاديمية.</p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-primary text-on-primary px-8 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dim transition-all flex items-center gap-2"
           >
               <span className="material-symbols-outlined">person_add</span>
-              إضافة معلم جديد
+              إضافة مدرس جديد
           </button>
       </div>
 
@@ -88,7 +105,7 @@ export default function TeacherApproval() {
         <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-bold flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary">groups</span>
-                قائمة المعلمين
+                قائمة المدرسين
             </h3>
             {pendingCount > 0 && (
                 <span className="bg-error/10 text-error px-4 py-1 rounded-full text-xs font-bold animate-pulse">
@@ -120,7 +137,7 @@ export default function TeacherApproval() {
                                 </h4>
                                 <p className="text-xs font-mono text-outline-variant">{teacher.username}</p>
                             </div>
-                        </div>
+                                               </div>
 
                         <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto flex-1 max-w-2xl">
                             <div className="relative w-full">
@@ -138,7 +155,15 @@ export default function TeacherApproval() {
                             >
                                 {teacher.status === 'pending' ? 'موافقة وتخصيص' : 'تحديث المواد'}
                             </button>
+                            <button
+                                onClick={() => handleDeleteTeacher(teacher._id, teacher.name)}
+                                className="w-full md:w-auto bg-error/10 text-error px-6 py-3 rounded-2xl font-bold text-sm hover:bg-error hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-sm">delete</span>
+                                حذف
+                            </button>
                         </div>
+                   
                     </div>
                 ))}
             </div>

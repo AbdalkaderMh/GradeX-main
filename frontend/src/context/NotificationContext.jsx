@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import api from "../api/axios";
 
-const NotificationContext = createContext();
+const NotificationContext = createContext({ notifications: [] });
 
 export const useNotification = () => useContext(NotificationContext);
 
@@ -12,9 +12,17 @@ export const NotificationProvider = ({ children }) => {
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await api.get("/notifications");
-      setNotifications(res.data);
+      const data = res.data;
+      // Defensive: accept either a raw array or an object wrapping the array
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.notifications)
+          ? data.notifications
+          : [];
+      setNotifications(list);
     } catch (err) {
       console.error("Failed to fetch notifications");
+      setNotifications([]);
     }
   }, []);
 
@@ -26,8 +34,12 @@ export const NotificationProvider = ({ children }) => {
 
     const eventSource = new EventSource(`${api.defaults.baseURL}/notifications/stream?token=${token}`);
     eventSource.onmessage = (event) => {
-        const newNotif = JSON.parse(event.data);
-        setNotifications(prev => [newNotif, ...prev]);
+        try {
+          const newNotif = JSON.parse(event.data);
+          setNotifications(prev => [newNotif, ...(Array.isArray(prev) ? prev : [])]);
+        } catch (err) {
+          console.error("Failed to parse notification event", err);
+        }
     };
     eventSource.onerror = () => eventSource.close();
 
@@ -54,14 +66,14 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = useCallback(async (id) => {
     try {
       await api.put(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+      setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) { console.error(err); }
   }, []);
 
   const markAllRead = useCallback(async () => {
     try {
         await api.put("/notifications/mark-all-read");
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n => ({ ...n, isRead: true })));
     } catch (err) { console.error(err); }
   }, []);
 

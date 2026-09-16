@@ -47,11 +47,15 @@ export default function EditStudentModal({ student, onClose, onUpdate }) {
     });
   }
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api.put(`/admin/students/${student._id}`, form);
+      const payload = { ...form };
+      if (!payload.password) {
+        delete payload.password;
+      }
+      const res = await api.put(`/admin/students/${student._id}`, payload);
       onUpdate(res.data);
       onClose();
     } catch (err) {
@@ -60,7 +64,6 @@ export default function EditStudentModal({ student, onClose, onUpdate }) {
       setLoading(false);
     }
   };
-
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-on-surface/20 backdrop-blur-sm p-6">
       <div className="bg-surface-container-lowest rounded-3xl oceanic-shadow w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
