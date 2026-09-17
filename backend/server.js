@@ -206,15 +206,16 @@ app.use(async (_req, _res, next) => {
 });
 
 // ── Local dev only: start a real server ───────────────────────────
+// Serve uploads with 7-day cache (filenames are timestamp-based, so safe to cache)
+// Skip on Vercel: the filesystem there is read-only, so mkdir would crash the app.
 if (process.env.VERCEL !== "1") {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, async () => {
-    await connectDB();
-    await normalizeExistingUsers();
-    await ensureAdminExists();
-    isInitialized = true;
-    console.log(`🔥 Server running on http://localhost:${PORT}`);
+  const uploadsDir = path.join(__dirname, "uploads");
+  ["avatars", "logos"].forEach((sub) => {
+    const dir = path.join(uploadsDir, sub);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   });
+  app.use(
+    "/uploads",
+    express.static(uploadsDir, { maxAge: "7d", immutable: true })
+  );
 }
-
-export default app;

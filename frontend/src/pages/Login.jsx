@@ -74,7 +74,7 @@ export default function Login() {
             <h1 className="font-headline text-3xl font-extrabold tracking-tight bg-gradient-to-br from-blue-700 to-blue-400 bg-clip-text text-transparent mb-2">
               {settings.schoolName}
             </h1>
-            <p className="text-on-surface-variant font-medium opacity-80">نظام إدارة النتائج الأكاديمية</p>
+            <p className="text-on-surface-variant font-medium opacity-80">نظام إدارة النتائج </p>
           </div>
 
           {/* Login Card */}
