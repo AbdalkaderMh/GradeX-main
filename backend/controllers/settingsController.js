@@ -16,6 +16,12 @@ const getSettings = async () => {
  */
 export const getDropdownOptions = async (_req, res) => {
     try {
+      // منع أي تخزين مؤقت (Vercel CDN / المتصفح) لهذا المسار المحمي.
+      // بدون هذه الترويسة، Vercel يطبّق سياسة تخزين مؤقت افتراضية عامة
+      // (public, max-age=0, must-revalidate) قد تُخزّن استجابة فاشلة (401)
+      // وتُقدّمها لاحقاً لمستخدمين آخرين أصحاب توكنات صالحة.
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+
       const settings = await getSettings();
       res.json({
         grades: settings.grades,
