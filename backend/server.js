@@ -39,6 +39,9 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 
 const app = express();
 
+// ✅ FIX #1: trust proxy — لازم قبل أي rate limiter، يحل خطأ 'Forwarded' header على Vercel
+app.set("trust proxy", 1);
+
 // Security Middleware
 app.use(
   helmet({
@@ -93,52 +96,6 @@ if (process.env.VERCEL !== "1") {
     express.static(uploadsDir, { maxAge: "7d", immutable: true })
   );
 }
-
-// ── Rate Limiters ───────────────────────────────────────────────
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many requests. Please try again in 15 minutes." },
-});
-
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many attempts. Please try again in an hour." },
-});
-
-app.use("/api/", apiLimiter);
-app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/setup/admin", authLimiter);
-app.use("/api/auth/reset-password", authLimiter);
-
-app.get("/", (_req, res) => res.send("API is running..."));
-
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/student", studentRoutes);
-app.use("/api/support", supportRoutes);
-app.use("/api/notifications", notificationRoutes);
-
-// Global error handler
-app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  const status = err.status || 500;
-  const message =
-    process.env.NODE_ENV === "production"
-      ? "An internal server error occurred"
-      : err.message;
-
-  res.status(status).json({
-    success: false,
-    message,
-    ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
-  });
-});
 
 // ── Ensure Admin Exists ───────────────────────────────────────
 const ensureAdminExists = async () => {
@@ -196,16 +153,71 @@ const normalizeExistingUsers = async () => {
   }
 };
 
-// ── Serverless-safe DB connection + init (runs once per cold start) ──
+// ✅ FIX #2: middleware الاتصال بقاعدة البيانات — قبل أي Rate limiter أو Route الآن
+// (كان سابقًا بعد كل الـ routes، فالطلبات كانت توصل للـ controller قبل ما يتصل بقاعدة البيانات)
 let isInitialized = false;
-app.use(async (_req, _res, next) => {
+app.use(async (_req, res, next) => {
   if (!isInitialized) {
-    await connectDB();
-    await normalizeExistingUsers();
-    await ensureAdminExists();
-    isInitialized = true;
+    try {
+      await connectDB();
+      await normalizeExistingUsers();
+      await ensureAdminExists();
+      isInitialized = true;
+    } catch (err) {
+      console.error("❌ Initialization failed:", err.message);
+      return res
+        .status(503)
+        .json({ message: "Service unavailable, database connection failed" });
+    }
   }
   next();
+});
+
+// ── Rate Limiters ───────────────────────────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again in 15 minutes." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again in an hour." },
+});
+
+app.use("/api/", apiLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/setup/admin", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
+
+app.get("/", (_req, res) => res.send("API is running..."));
+
+// ── المسارات: تُسجَّل الآن بعد ما نضمن جاهزية قاعدة البيانات ──
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/student", studentRoutes);
+app.use("/api/support", supportRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+// Global error handler
+app.use((err, _req, res, _next) => {
+  console.error(err.stack);
+  const status = err.status || 500;
+  const message =
+    process.env.NODE_ENV === "production"
+      ? "An internal server error occurred"
+      : err.message;
+
+  res.status(status).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
+  });
 });
 
 // ── Local dev only: start a real server ───────────────────────────
