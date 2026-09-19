@@ -267,8 +267,19 @@ export const exportStudents = async (req, res) => {
 
     const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
+    // اسم ملف عربي آمن للترويسة:
+    // ترويسات HTTP لا تسمح بأحرف غير ASCII مباشرة داخل Content-Disposition،
+    // لذا نستخدم اسماً إنجليزياً بديلاً (ASCII) في filename العادي (للمتصفحات القديمة)،
+    // ونضع الاسم العربي الحقيقي مُرمّزاً بمعيار RFC 5987 في filename* (تدعمه كل المتصفحات الحديثة).
+    const asciiFallback = `credentials_${Date.now()}.xlsx`;
+    const arabicName = `بيانات_${grade || "الكل"}_${department || "الكل"}.xlsx`;
+    const encodedArabicName = encodeURIComponent(arabicName);
+
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename=credentials_${grade}_${department}.xlsx`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedArabicName}`
+    );
     res.send(buffer);
   } catch (error) {
     // طباعة الخطأ الفعلي في سجلات الخادم (Vercel Logs) لتسهيل التشخيص مستقبلاً.
