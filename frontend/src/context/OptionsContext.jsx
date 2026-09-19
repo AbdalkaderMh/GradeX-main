@@ -23,7 +23,26 @@ export const OptionsProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    fetchOptions();
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      // يوجد توكن بالفعل عند تحميل التطبيق (جلسة سابقة صالحة) → اجلب الخيارات فوراً.
+      fetchOptions();
+    } else {
+      // لا يوجد توكن بعد (المستخدم لم يسجّل دخوله بعد).
+      // بدلاً من الفشل بصمت والبقاء عالقاً بدون بيانات إلى الأبد،
+      // ننتظر ظهور التوكن (يحدث فور نجاح تسجيل الدخول) ثم نجلب الخيارات تلقائياً.
+      setLoading(false);
+      const interval = setInterval(() => {
+        const t = localStorage.getItem("token");
+        if (t) {
+          clearInterval(interval);
+          fetchOptions(true);
+        }
+      }, 500);
+
+      return () => clearInterval(interval);
+    }
   }, []);
 
   return (
