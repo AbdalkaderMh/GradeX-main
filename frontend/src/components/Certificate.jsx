@@ -3,17 +3,21 @@ import React from 'react';
 const Certificate = ({ student, settings }) => {
   if (!student) return null;
 
+  const subjects = student.subjects || [];
   const schoolName = settings?.schoolName || "إعدادية هيت المهنية";
-  const academicYear = student.academicYear || "2026 - 2027";
+  const academicYear = student.academicYear || "2025 - 2026";
 
   // Calculate the result (Pass/Fail)
   const isPassing = (grade) => parseFloat(grade) >= 50;
-  const overallResult = student.subjects.every(s => isPassing(s.currentScore)) ? "ناجح" : "راسب";
+  const overallResult = subjects.every(s => isPassing(s.currentScore)) ? "ناجح" : "راسب";
 
   return (
-    <div className="certificate-container bg-[#FFD700] p-8 font-['Be_Vietnam_Pro'] text-right dir-rtl min-h-[1122px] w-[794px] mx-auto border-[12px] border-double border-black relative overflow-hidden" id="student-certificate">
-      {/* Background patterns could be added here */}
-
+    <div
+      className="certificate-container bg-[#FFD700] p-8 font-['Be_Vietnam_Pro'] text-right dir-rtl min-h-[1122px] w-[794px] mx-auto border-[12px] border-double border-black relative overflow-hidden"
+      id="student-certificate"
+      dir="rtl"
+      style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+    >
       {/* Header Section */}
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/3 space-y-2">
@@ -33,7 +37,7 @@ const Certificate = ({ student, settings }) => {
             <p className="text-sm font-bold">نتائج الطلبة للعام الدراسي ( {academicYear} )</p>
         </div>
 
-        <div className="w-1/3 border-2 border-black p-4 rounded-xl bg-white/20 backdrop-blur-sm">
+        <div className="w-1/3 border-2 border-black p-4 rounded-xl bg-white/20">
             <div className="space-y-3">
                 <div className="flex gap-2 border-b border-black/20 pb-1">
                     <span className="font-bold whitespace-nowrap">الاسم /</span>
@@ -83,26 +87,24 @@ const Certificate = ({ student, settings }) => {
                 </tr>
             </thead>
             <tbody>
-                {student.subjects.map((subject, index) => (
+                {subjects.map((subject, index) => (
                     <tr key={index} className="h-10">
                         <td className="border border-black text-center font-bold text-xs">{index + 1}</td>
                         <td className="border border-black px-3 font-bold text-sm">{subject.name}</td>
-                           <td className="border border-black text-center font-black bg-black/5">{subject.currentScore}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الفصل الأول'] || subject.details?.['الفصل الأول'] || ''}</td>
-                     
                         <td className="border border-black text-center font-black">{subject.details?.['نصف السنة'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الفصل الثاني'] || subject.details?.['الفصل الثاني'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['السعي السنوي'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['الامتحان النهائي'] || ''}</td>
-                       
+                        <td className="border border-black text-center font-black bg-black/5">{subject.currentScore}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['درجة الإكمال'] || ''}</td>
                         <td className="border border-black text-center font-black">{subject.details?.['بعد الإكمال'] || ''}</td>
                     </tr>
                 ))}
                 {/* Empty rows if subjects < 12 */}
-                {Array.from({ length: Math.max(0, 11 - student.subjects.length) }).map((_, i) => (
+                {Array.from({ length: Math.max(0, 11 - subjects.length) }).map((_, i) => (
                     <tr key={`empty-${i}`} className="h-10">
-                        <td className="border border-black text-center text-xs opacity-20">{student.subjects.length + i + 1}</td>
+                        <td className="border border-black text-center text-xs opacity-20">{subjects.length + i + 1}</td>
                         <td className="border border-black"></td>
                         <td className="border border-black"></td>
                         <td className="border border-black"></td>
