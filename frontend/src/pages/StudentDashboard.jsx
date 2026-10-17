@@ -5,6 +5,7 @@ import api from "../api/axios";
 import Certificate from "../components/Certificate";
 import EmptyState from "../components/EmptyState";
 import Footer from "../components/Footer";
+import PrintCertificate from "../components/PrintCertificate";
 
 export default function StudentDashboard() {
   const { showNotification } = useNotification();
@@ -106,6 +107,8 @@ export default function StudentDashboard() {
                 <div className="certificate-wrapper bg-white p-12 rounded-[40px] shadow-2xl overflow-x-auto">
                     <Certificate student={data} settings={options} />
                 </div>
+
+                <PrintCertificate student={data} settings={options} />
             </div>
         </main>
     );
@@ -467,6 +470,8 @@ export default function StudentDashboard() {
             )}
         </div>
       </div>
+
+      <PrintCertificate student={data} settings={options} />
 
       <Footer />
     </main>
