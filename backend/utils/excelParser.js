@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 export function parseExcel(buffer, { filename = "" }) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
