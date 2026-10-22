@@ -1,57 +1,4 @@
-import XLSX from "xlsx";
-
-/**
- * Normalizes Arabic text (minimal normalization for matching)
- */
-function normalizeArabic(text) {
-  if (!text) return "";
-  return text
-    .toString()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .trim();
-}
-
-/**
- * Converts Eastern Arabic Numerals (٠-٩) to standard numerals (0-9)
- */
-function convertArabicNumerals(str) {
-    if (typeof str !== 'string') return str;
-    return str.replace(/[٠١٢٣٤٥٦٧٨٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
-}
-
-/**
- * MAIN PARSER - SINGLE SUBJECT FOCUS
- *
- * Expectations:
- * - Each file contains only one subject.
- * - Format: Student Name | Grade (or similar)
- */
-/**
- * Utility to extract metadata from Arabic filename or spreadsheet headers
- */
-function extractMetadataFromFilename(filename) {
-    const meta = { grade: "", department: "", section: "" };
-
-    // Arabic keyword mapping
-    const grades = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس"];
-    const departments = {
-        "تجميع": "تجميع وصيانة الحاسوب",
-        "الأمن": "الأمن السيبراني",
-        "الكهرباء": "هندسة الكهرباء",
-        "الميكانيك": "هندسة الميكانيك",
-        "اللحام": "اللحام"
-    };
-    const sections = ["أ", "ب", "ج", "د"];
-
-    for (const g of grades) { if (filename.includes(g)) meta.grade = g; }
-    for (const [key, val] of Object.entries(departments)) { if (filename.includes(key)) meta.department = val; }
-    for (const s of sections) { if (filename.includes(`(${s})`) || filename.includes(` ${s} `)) meta.section = s; }
-
-    return meta;
-}
-
-export function parseExcel(buffer, { subjectName, filename = "" }) {
+export function parseExcel(buffer, { filename = "" }) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
   const ws = workbook.Sheets[sheetName];
@@ -62,24 +9,13 @@ export function parseExcel(buffer, { subjectName, filename = "" }) {
 
   const meta = extractMetadataFromFilename(filename);
 
-  // Identify name column and grade column
-  // Searching for the row that looks most like a header row
+  // العثور على صف العناوين الذي يحتوي على اسم الطالب
   let headerRowIdx = rows.findIndex(row =>
     row && row.some(cell => {
         const norm = normalizeArabic(cell);
         return norm === "اسم الطالب" || norm === "الاسم" || (norm.includes("اسم") && norm.includes("طالب"));
     })
   );
-
-  // Fallback if strict match fails
-  if (headerRowIdx === -1) {
-      headerRowIdx = rows.findIndex(row =>
-        row && row.some(cell => {
-            const norm = normalizeArabic(cell);
-            return norm.includes("اسم") || norm.includes("الاسم");
-        })
-      );
-  }
 
   if (headerRowIdx === -1) {
     return { students: [], errors: ["Could not find header row with 'Student Name'"] };
@@ -91,34 +27,21 @@ export function parseExcel(buffer, { subjectName, filename = "" }) {
       return norm.includes("اسم") || norm.includes("الاسم");
   });
 
-  // Fallback: If no "Name" header found, look for the first column that contains strings longer than 5 chars
-  if (nameIdx === -1) {
-      for (let i = headerRowIdx + 1; i < Math.min(rows.length, headerRowIdx + 10); i++) {
-          const firstStringCol = rows[i]?.findIndex(cell => cell && typeof cell === 'string' && cell.length > 5);
-          if (firstStringCol !== -1) {
-              nameIdx = firstStringCol;
-              break;
-          }
-      }
-  }
-
-  // Final fallback: use Column 0
   if (nameIdx === -1) nameIdx = 0;
 
-  // SMART GRADE DETECTION: Find the "Total" column
-  // Often there are multiple columns with grades, we want the "Final Total" (المجموع)
-  // We search from right to left as "Total" is usually at the end.
-  let gradeIdx = -1;
-  const gradeKeywords = ["مجموع", "المجموع", "درجه", "النتيجه", "النهائي"];
+  // تحديد أعمدة المواد الدراسية (كل عمود عدا عمود الترتيب والاسم والمجموع النهائي)
+  const excludeKeywords = ["ت", "الاسم", "اسم الطالب", "المجموع", "مجموع", "النتيجه", "ملاحظات", "الترتيب"];
+  const subjectColumns = [];
 
-  for (let j = headers.length - 1; j >= 0; j--) {
-      if (j === nameIdx || !headers[j]) continue;
-      const norm = normalizeArabic(headers[j]);
-      if (gradeKeywords.some(kw => norm.includes(kw))) {
-          gradeIdx = j;
-          break;
+  headers.forEach((h, index) => {
+      if (index === nameIdx || !h) return;
+      const norm = normalizeArabic(h);
+      const isExcluded = excludeKeywords.some(kw => norm === kw || norm.includes(kw));
+      
+      if (!isExcluded) {
+          subjectColumns.push({ index, name: String(h).trim() });
       }
-  }
+  });
 
   const students = [];
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
@@ -129,40 +52,30 @@ export function parseExcel(buffer, { subjectName, filename = "" }) {
     if (!rawName) continue;
 
     const studentName = String(rawName).trim();
-    const normName = normalizeArabic(studentName);
-
-    // Skip numbers or very short entries
     if (!studentName || studentName.length < 3 || !isNaN(studentName)) continue;
 
-    // ADMINISTRATIVE ROW FILTER: Skip titles, metadata, and repeating headers
-    const skipKeywords = [
-        "اسماء طلاب", "اسم الطالب", "العام الدراسي", "شعبه",
-        "تجميع", "صيانه", "الحاسوب", "الرابع", "المجموع", "ت", "شهر"
-    ];
+    // استخراج درجات المواد المتعددة لهذا الطالب
+    const subjects = [];
+    let calculatedTotal = 0;
 
-    if (skipKeywords.some(kw => normName.includes(kw))) {
-        // Strict and smart filtering for administrative/metadata rows
-        const isHeaderExact = normName === "اسم الطالب" || normName === "المجموع" || normName === "ت";
-        const isTitleRow = studentName.includes("قسم") || studentName.includes("طلاب") || studentName.includes("العام الدراسي");
-        const isMetadataFragment = normName === "تجميع" || normName === "شعبه" || normName === "شهر";
-
-        if (isHeaderExact || isTitleRow || isMetadataFragment) {
-            continue;
-        }
-    }
-
-    let score = 0;
-    if (gradeIdx !== -1) {
-        let val = row[gradeIdx];
+    subjectColumns.forEach(sub => {
+        let val = row[sub.index];
+        let score = 0;
         if (val !== null && val !== undefined) {
             val = convertArabicNumerals(val.toString());
             score = parseFloat(val) || 0;
         }
-    }
+        subjects.push({
+            name: sub.name,
+            currentScore: score
+        });
+        calculatedTotal += score;
+    });
 
     students.push({
       name: studentName,
-      score,
+      subjects,
+      total: calculatedTotal,
       details: {}
     });
   }
@@ -170,7 +83,6 @@ export function parseExcel(buffer, { subjectName, filename = "" }) {
   return {
     students,
     meta,
-    subjectName: subjectName || "General",
-    errors: gradeIdx === -1 ? ["Could not find Grade column (المجموع). Only names extracted."] : []
+    errors: subjectColumns.length === 0 ? ["لم يتم العثور على أعمدة مواد دراسية في الملف."] : []
   };
 }
