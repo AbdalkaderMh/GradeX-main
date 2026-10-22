@@ -1,4 +1,39 @@
 import * as XLSX from 'xlsx';
+
+// دالة لتطبيع وتوحيد النصوص العربية
+function normalizeArabic(text) {
+  if (!text) return "";
+  return String(text)
+    .trim()
+    .replace(/[أإآء]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .toLowerCase();
+}
+
+// دالة لتحويل الأرقام الهندية/العربية المشرقية إلى أرقام إنجليزية
+function convertArabicNumerals(str) {
+  if (typeof str !== 'string') return str;
+  const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  const persianNumbers = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  return str.replace(/[٠-٩۰-۹]/g, d => {
+    let index = arabicNumbers.indexOf(d);
+    if (index === -1) index = persianNumbers.indexOf(d);
+    return index;
+  });
+}
+
+// دالة استخراج البيانات الوصفية من اسم الملف
+function extractMetadataFromFilename(filename) {
+  return {
+    grade: "",
+    department: "",
+    section: "",
+    round: "الأول",
+    subject: ""
+  };
+}
+
 export function parseExcel(buffer, { filename = "" }) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
