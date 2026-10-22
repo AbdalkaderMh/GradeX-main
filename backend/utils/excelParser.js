@@ -65,8 +65,12 @@ export function parseExcel(buffer, { filename = "" }) {
 
   if (nameIdx === -1) nameIdx = 0;
 
-  // تحديد أعمدة المواد الدراسية (كل عمود عدا عمود الترتيب والاسم والمجموع النهائي)
-  const excludeKeywords = ["ت", "الاسم", "اسم الطالب", "المجموع", "مجموع", "النتيجه", "ملاحظات", "الترتيب"];
+  // تحديد أعمدة المواد الدراسية مع استبعاد البيانات الوصفية والـ General
+  const excludeKeywords = [
+    "ت", "الاسم", "اسم الطالب", "المجموع", "مجموع", "النتيجه", "ملاحظات", "الترتيب",
+    "general", "department", "grade", "section", "specialty", "round"
+  ];
+  
   const subjectColumns = [];
 
   headers.forEach((h, index) => {
