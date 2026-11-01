@@ -10,19 +10,15 @@ import { processImage, deleteOldImage } from "../utils/imageHandler.js";
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 2 * 60 * 60 * 1000;
 
-// ── Ensure Admin Exists ───────────────────────────────────────
 export const ensureAdminExists = async () => {
   try {
     const existingAdmin = await User.findOne({ role: "admin" });
-
     if (existingAdmin) {
-      console.log("✅ Admin already exists");
+      console.log("Admin already exists");
       return;
     }
-
     const adminPassword = process.env.ADMIN_PASSWORD || "Admin@123";
-
-    const admin = await User.create({
+    await User.create({
       name: "System Admin",
       username: "admin",
       password: adminPassword,
@@ -30,63 +26,46 @@ export const ensureAdminExists = async () => {
       status: "approved",
       requiresPasswordChange: true,
     });
-
-    console.log("🔥 Initial admin created!");
-    console.log("👤 Username: admin");
-    console.log(`🔑 Password: ${adminPassword}`);
+    console.log("Initial admin created");
   } catch (err) {
-    console.error("❌ Error creating admin:", err.message);
+    console.error("Error creating admin:", err.message);
   }
 };
 
-// ── Emergency Admin Password Reset ─────────────────────────────
 export const emergencyResetAdmin = async (req, res) => {
   try {
     const { setupKey, newPassword } = req.body;
-
     if (!setupKey || setupKey !== process.env.ADMIN_SETUP_KEY) {
       return res.status(403).json({ message: "Invalid setup key" });
     }
-
     if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters",
-      });
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
     }
-
     const admin = await User.findOne({ role: "admin" });
     if (!admin) {
       return res.status(404).json({ message: "Admin account not found" });
     }
-
     admin.password = newPassword;
     admin.requiresPasswordChange = false;
     admin.loginAttempts = 0;
     admin.lockUntil = undefined;
     admin.tokenVersion = (admin.tokenVersion || 0) + 1;
     await admin.save();
-
     res.json({ success: true, message: "Admin password reset successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ── LOGIN ─────────────────────────────────────────────────────
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
-
     if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (user.isLocked)
-      return res
-        .status(401)
-        .json({ message: "Account is locked. Try again later." });
-
+    if (user.isLocked) {
+      return res.status(401).json({ message: "Account is locked. Try again later." });
+    }
     const isMatch = await user.comparePassword(password);
-
     if (!isMatch) {
       user.loginAttempts += 1;
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -95,14 +74,12 @@ export const login = async (req, res) => {
       await user.save();
       return res.status(400).json({ message: "Invalid credentials" });
     }
-
-    if (user.status !== "approved")
+    if (user.status !== "approved") {
       return res.status(403).json({ message: "Account pending approval" });
-
+    }
     user.loginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
-
     const token = jwt.sign(
       {
         id: user._id,
@@ -113,7 +90,6 @@ export const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-
     res.json({
       token,
       role: user.role,
@@ -131,21 +107,16 @@ export const login = async (req, res) => {
   }
 };
 
-// ── Teacher Signup ────────────────────────────────────────────
 export const teacherSignup = async (req, res) => {
   try {
     const { name, password } = req.body;
-
-    if (!name || !password)
+    if (!name || !password) {
       return res.status(400).json({ message: "Name and password required" });
-
-    if (password.length < 8)
-      return res.status(400).json({
-        message: "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
-      });
-
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: "كلمة المرور يجب أن تكون 8 أحرف على الأقل" });
+    }
     const username = await generateUsername("teacher");
-
     const user = await User.create({
       name,
       username,
@@ -154,9 +125,7 @@ export const teacherSignup = async (req, res) => {
       status: "pending",
       requiresPasswordChange: true,
     });
-
     await Teacher.create({ userId: user._id, subjects: [] });
-
     res.status(201).json({
       message: "تم تسجيل المعلم بنجاح. يرجى انتظار موافقة الإدارة.",
       username: user.username,
@@ -166,84 +135,64 @@ export const teacherSignup = async (req, res) => {
   }
 };
 
-// ── Update Profile ────────────────────────────────────────────
 export const updateProfile = async (req, res) => {
   try {
     const { name, password } = req.body;
     const user = await User.findById(req.user.id);
-
-    if (password && password.length < 8)
-      return res.status(400).json({
-        message: "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل",
-      });
-
+    if (password && password.length < 8) {
+      return res.status(400).json({ message: "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل" });
+    }
     if (name) {
-      if (user.role !== "admin")
-        return res
-          .status(403)
-          .json({ message: "فقط المسؤول يمكنه تغيير الاسم" });
-
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "فقط المسؤول يمكنه تغيير الاسم" });
+      }
       user.name = name;
     }
-
     if (password) {
       user.password = password;
       user.requiresPasswordChange = false;
       user.tokenVersion = (user.tokenVersion || 0) + 1;
     }
-
     await user.save();
-
     res.json({ success: true, message: "تم تحديث الملف الشخصي بنجاح" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ── Upload Avatar ─────────────────────────────────────────────
 export const uploadAvatar = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-
     const avatarPath = await processImage(req.file.buffer, "avatar");
-
     if (user.avatar) deleteOldImage(user.avatar);
-
     user.avatar = avatarPath;
     await user.save();
-
     res.json({ success: true, avatar: avatarPath });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ── Get Profile ───────────────────────────────────────────────
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
-
     let profileData = { user };
-
-    if (user.role === "student")
+    if (user.role === "student") {
       profileData.profile = await Student.findOne({ userId: user._id });
-    else if (user.role === "teacher")
+    } else if (user.role === "teacher") {
       profileData.profile = await Teacher.findOne({ userId: user._id });
-
+    }
     res.json(profileData);
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// ── Public Settings ───────────────────────────────────────────
 export const getPublicSettings = async (req, res) => {
   try {
     const settings = await Settings.findOne();
-
     if (!settings) {
       return res.json({
         schoolName: "GradeX",
@@ -251,7 +200,6 @@ export const getPublicSettings = async (req, res) => {
         developerName: "عبدالقادر محمد",
       });
     }
-
     res.json({
       schoolName: settings.schoolName,
       logo: settings.logo,
@@ -262,60 +210,43 @@ export const getPublicSettings = async (req, res) => {
   }
 };
 
-// ── Secure Reset Token ────────────────────────────────────────
 export const generateResetToken = async (req, res) => {
   try {
     const { userId } = req.params;
-
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-
     const token = randomBytes(32).toString("hex");
-
     user.resetToken = token;
     user.resetTokenExpiry = Date.now() + 3600000;
-
     await user.save();
-
     res.json({ token });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ── Reset Password ────────────────────────────────────────────
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-
-    if (!token || !newPassword)
-      return res.status(400).json({
-        message: "Token and new password required",
-      });
-
-    if (newPassword.length < 8)
-      return res.status(400).json({
-        message: "Password must be at least 8 characters",
-      });
-
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
     const user = await User.findOne({
       resetToken: token,
       resetTokenExpiry: { $gt: Date.now() },
     });
-
-    if (!user)
-      return res.status(400).json({
-        message: "Invalid or expired token",
-      });
-
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
     user.password = newPassword;
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
     user.requiresPasswordChange = false;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
-
     await user.save();
-
     res.json({ success: true, message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
