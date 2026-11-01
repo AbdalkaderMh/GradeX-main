@@ -1,38 +1,4 @@
 import express from "express";
-
-
-// ── Emergency Admin Password Reset ─────────────────────────────
-export const emergencyResetAdmin = async (req, res) => {
-  try {
-    const { setupKey, newPassword } = req.body;
-
-    if (!setupKey || setupKey !== process.env.ADMIN_SETUP_KEY) {
-      return res.status(403).json({ message: "Invalid setup key" });
-    }
-
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters",
-      });
-    }
-
-    const admin = await User.findOne({ role: "admin" });
-    if (!admin) {
-      return res.status(404).json({ message: "Admin account not found" });
-    }
-
-    admin.password = newPassword;
-    admin.requiresPasswordChange = false;
-    admin.loginAttempts = 0;
-    admin.lockUntil = undefined;
-    admin.tokenVersion = (admin.tokenVersion || 0) + 1;
-    await admin.save();
-
-    res.json({ success: true, message: "Admin password reset successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
 import {
   login,
   teacherSignup,
@@ -43,6 +9,7 @@ import {
   getPublicSettings,
   generateResetToken,
   resetPassword,
+  emergencyResetAdmin,
 } from "../controllers/authController.js";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import multer from "multer";
@@ -67,6 +34,7 @@ router.get("/profile", protect, getProfile);
 router.put("/profile", protect, updateProfile);
 router.post("/upload-avatar", protect, upload.single("avatar"), uploadAvatar);
 router.post("/setup/admin", ensureAdminExists);
+router.post("/emergency-reset-admin", emergencyResetAdmin);
 router.post("/generate-reset-token/:userId", protect, adminOnly, generateResetToken);
 router.post("/reset-password", resetPassword);
 
