@@ -109,38 +109,4 @@ Default Admin Credentials:
 ## 📊 Excel Upload Format
 
 For optimal parsing, ensure your Excel files include:
-- **Column Headers**: Student Name (اسم الطالب), Subjects (e.g., Mathematics), and Total (optional).
-- **Naming Convention**: Filenames like `Electrical_Grade1_SecA.xlsx` allow the system to automatically categorize the data.
-
----
-
-## 🛠️ API Endpoints
-
-### Auth
-- `POST /api/auth/login`: Authenticate users.
-- `GET /api/auth/profile`: Retrieve current user data.
-
-### Admin
-- `GET /api/admin/options`: Fetch dynamic grades/departments.
-- `PUT /api/admin/options`: Update system settings.
-- `POST /api/admin/upload-preview`: Parse Excel for review.
-- `GET /api/admin/students`: Manage student database.
-
-### Student
-- `GET /api/student/me`: View authenticated student results.
-
----
-
-## 👨‍💻 Project Software Management
-**Abdulqadir Muhammad** (عبدالقادر محمد)
-
----
-
-## 📜 License
-This project is licensed under the ISC License.
-
----
-
-## 🌍 Arabic Documentation / التوثيق بالعربية
-For detailed documentation in Arabic, please refer to [DOCS_AR.md](./DOCS_AR.md).
-للحصول على التوثيق التفصيلي باللغة العربية، يرجى الرجوع إلى ملف [DOCS_AR.md](./DOCS_AR.md).
+- **Column Headers**: Student Name (اسم
