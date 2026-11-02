@@ -34,6 +34,7 @@ function parseNumber(val) {
  */
 function extractMetadataFromFilename(filename) {
   const meta = { grade: "", department: "", section: "" };
+  if (!filename) return meta;
 
   const grades = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس"];
   const departments = {
@@ -53,20 +54,108 @@ function extractMetadataFromFilename(filename) {
 }
 
 /**
- * Parses ONE worksheet (one subject) with multiple grade columns per student.
- * Returns: { students, gradeColumns, errors }
+ * Parses ONE worksheet: finds the name column and the score column.
+ * Returns: { students, errors }
  */
-function parseSheet(ws) {
+function parseSheet(ws, subjectName) {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-  if (rows.length < 1) return { students: [], gradeColumns: [], errors: ["Empty sheet"] };
+  if (rows.length < 1) return { students: [], errors: ["Empty sheet"] };
 
   // Find header row
-  let headerRowIdx = rows.findIndex(row =>
+  const headerRowIdx = rows.findIndex(row =>
     row && row.some(cell => {
       const norm = normalizeArabic(cell);
       return norm === "اسم الطالب" || norm === "الاسم" || (norm.includes("اسم") && norm.includes("طالب"));
     })
   );
 
-  if
+  if (headerRowIdx === -1) {
+    return { students: [], errors: ["لم يتم العثور على عمود اسم الطالب"] };
+  }
+
+  const headerRow = rows[headerRowIdx];
+
+  // Name column
+  const nameCol = headerRow.findIndex(cell => {
+    const norm = normalizeArabic(cell);
+    return norm === "اسم الطالب" || norm === "الاسم" || (norm.includes("اسم") && norm.includes("طالب"));
+  });
+
+  // Score column: match subject name first, otherwise first column after name
+  // that is not a total/average/serial column
+  const excluded = ["المجموع", "المعدل", "النسبه", "النتيجه", "ت", "م", "التسلسل"];
+  let scoreCol = -1;
+
+  if (subjectName) {
+    const target = normalizeArabic(subjectName);
+    scoreCol = headerRow.findIndex(cell => cell && normalizeArabic(cell) === target);
+  }
+
+  if (scoreCol === -1) {
+    scoreCol = headerRow.findIndex((cell, idx) => {
+      if (idx === nameCol || cell === null || cell === undefined) return false;
+      const norm = normalizeArabic(cell);
+      return norm !== "" && !excluded.includes(norm);
+    });
+  }
+
+  if (scoreCol === -1) {
+    return { students: [], errors: ["لم يتم العثور على عمود الدرجات"] };
+  }
+
+  const students = [];
+  const errors = [];
+
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+
+    const rawName = row[nameCol];
+    if (rawName === null || rawName === undefined || rawName.toString().trim() === "") continue;
+
+    const name = rawName.toString().trim();
+    const score = parseNumber(row[scoreCol]);
+
+    if (score === null) {
+      errors.push(`الصف ${i + 1}: درجة غير صالحة للطالب ${name}`);
+      continue;
+    }
+
+    students.push({ name, score });
+  }
+
+  return { students, errors };
+}
+
+/**
+ * Main entry: parses an Excel buffer.
+ * options: { subjectName?, filename? }
+ * Returns: { students, meta, errors }
+ */
+export function parseExcel(buffer, options = {}) {
+  const { subjectName, filename } = options;
+
+  try {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+
+    if (!sheetName) {
+      return { students: [], meta: extractMetadataFromFilename(filename), errors: ["الملف لا يحتوي على أوراق"] };
+    }
+
+    const { students, errors } = parseSheet(workbook.Sheets[sheetName], subjectName);
+
+    return {
+      students,
+      meta: extractMetadataFromFilename(filename),
+      errors,
+    };
+  } catch (err) {
+    return {
+      students: [],
+      meta: extractMetadataFromFilename(filename),
+      errors: [`فشل قراءة الملف: ${err.message}`],
+    };
+  }
+}
