@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import * as XLSX from "xlsx";
 import Footer from "../components/Footer";
+import UploadAllSubjects from "../components/UploadAllSubjects";
 import { useNotification } from "../context/NotificationContext";
 import { useOptions } from "../context/OptionsContext";
 
@@ -776,6 +777,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      <UploadAllSubjects onDone={fetchStats} />
       <Footer />
     </main>
   );
