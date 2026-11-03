@@ -4,8 +4,8 @@ import {
     uploadGrades,
     uploadPreview,
     confirmUpload,
-    uploadPreviewAll,   // NEW
-    confirmUploadAll,   // NEW
+    uploadPreviewAll,
+    confirmUploadAll,
     bulkCreateStudents,
     bulkCreatePreview,
     bulkUpdatePublishStatus
@@ -65,8 +65,8 @@ router.post("/confirm-upload", protect, staffOnly, confirmUploadValidator, confi
 router.get("/my-students", protect, staffOnly, getMyStudents);
 
 // Admin only
-router.post("/upload-preview-all", protect, adminOnly, upload.single("file"), uploadPreviewAll); // NEW: all subjects
-router.post("/confirm-upload-all", protect, adminOnly, confirmUploadAll);                        // NEW: all subjects
+router.post("/upload-preview-all", protect, adminOnly, upload.single("file"), uploadPreviewAll);
+router.post("/confirm-upload-all", protect, adminOnly, confirmUploadAll);
 router.post("/bulk-create-preview", protect, adminOnly, upload.single("file"), bulkCreatePreview);
 router.post("/bulk-create-students", protect, adminOnly, upload.single("file"), bulkCreateStudents);
 router.get("/students", protect, adminOnly, getStudents);
@@ -83,4 +83,8 @@ router.post("/teachers", protect, adminOnly, createTeacherValidator, createTeach
 router.delete("/teachers/:id", protect, adminOnly, deleteTeacher);
 router.get("/pending-teachers", protect, adminOnly, getPendingTeachers);
 router.get("/export-students", protect, adminOnly, exportStudents);
-router.post("/bulk-publish", protect, adminOnly,
+router.post("/bulk-publish", protect, adminOnly, bulkUpdatePublishStatus);
+router.delete("/students/:id/subjects/:subjectName", protect, adminOnly, deleteSubjectFromStudent);
+router.get("/audit-logs", protect, adminOnly, getAuditLogs);
+
+export default router;
