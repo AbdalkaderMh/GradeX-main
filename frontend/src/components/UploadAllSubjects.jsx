@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import api from "../api/axios";
 import * as XLSX from "xlsx";
@@ -9,6 +8,7 @@ export default function UploadAllSubjects({ onDone }) {
   const { showNotification } = useNotification();
   const { options } = useOptions();
   const [file, setFile] = useState(null);
+  const [inputKey, setInputKey] = useState(0); // لتفريغ خانة اختيار الملف بعد النجاح
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,14 +25,36 @@ export default function UploadAllSubjects({ onDone }) {
     XLSX.writeFile(wb, "gradex_all_subjects_template.xlsx");
   };
 
+  const resetFile = () => {
+    setFile(null);
+    setInputKey((k) => k + 1);
+  };
+
+  const requestPreview = async () => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await api.post("/admin/upload-preview-all", fd);
+    return res.data;
+  };
+
+  const requestConfirm = async (students, publish) => {
+    const res = await api.post("/admin/confirm-upload-all", {
+      students,
+      isPublished: publish,
+      autoCreate,
+      grade,
+      department: dept,
+      section,
+    });
+    return res.data;
+  };
+
   const handlePreview = async () => {
     if (!file) return showNotification("يرجى اختيار ملف أولاً", "info");
     setLoading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await api.post("/admin/upload-preview-all", fd);
-      setPreview(res.data);
+      const data = await requestPreview();
+      setPreview(data);
       setResult(null);
     } catch (err) {
       showNotification(err.response?.data?.message || "فشل معاينة الملف", "error");
@@ -45,20 +67,49 @@ export default function UploadAllSubjects({ onDone }) {
     if (!preview || !preview.students.length) return;
     setLoading(true);
     try {
-      const res = await api.post("/admin/confirm-upload-all", {
-        students: preview.students,
-        isPublished: publish,
-        autoCreate,
-        grade,
-        department: dept,
-        section
-      });
-      setResult(res.data);
+      const data = await requestConfirm(preview.students, publish);
+      setResult(data);
       setPreview(null);
-      setFile(null);
+      resetFile();
       if (onDone) onDone();
     } catch (err) {
       showNotification(err.response?.data?.message || "فشل حفظ الدرجات", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // رفع ونشر مباشر: يعاين الملف ثم ينشر النتائج بدون خطوات إضافية.
+  // إذا وُجدت تنبيهات في الملف، يتوقف ويعرض المعاينة ليراجعها المسؤول.
+  const handleQuickPublish = async () => {
+    if (!file) return showNotification("يرجى اختيار ملف أولاً", "info");
+    setLoading(true);
+    try {
+      const data = await requestPreview();
+
+      if (!data.students?.length) {
+        showNotification("لم يتم العثور على أي طالب في الملف", "error");
+        return;
+      }
+
+      if (data.errors?.length > 0) {
+        setPreview(data);
+        setResult(null);
+        showNotification(
+          `يوجد ${data.errors.length} تنبيه في الملف. راجع المعاينة ثم اضغط "حفظ ونشر النتائج"`,
+          "info"
+        );
+        return;
+      }
+
+      const saved = await requestConfirm(data.students, true);
+      setResult(saved);
+      setPreview(null);
+      resetFile();
+      showNotification("تم رفع الدرجات ونشر النتائج", "success");
+      if (onDone) onDone();
+    } catch (err) {
+      showNotification(err.response?.data?.message || "فشل رفع ونشر النتائج", "error");
     } finally {
       setLoading(false);
     }
@@ -106,6 +157,7 @@ export default function UploadAllSubjects({ onDone }) {
 
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center mb-6">
         <input
+          key={inputKey}
           type="file"
           accept=".xlsx, .xls"
           onChange={(e) => { setFile(e.target.files[0]); setPreview(null); setResult(null); }}
@@ -114,9 +166,16 @@ export default function UploadAllSubjects({ onDone }) {
         <button
           onClick={handlePreview}
           disabled={loading || !file}
-          className="px-6 py-2 bg-primary text-white rounded-lg font-medium disabled:opacity-50"
+          className="px-6 py-2 bg-surface-container-high text-on-surface rounded-lg font-medium disabled:opacity-50"
         >
-          {loading ? "جاري المعالجة..." : "معاينة"}
+          {loading ? "جاري المعالجة..." : "معاينة فقط"}
+        </button>
+        <button
+          onClick={handleQuickPublish}
+          disabled={loading || !file}
+          className="px-6 py-2 academic-gradient text-white rounded-lg font-bold disabled:opacity-50"
+        >
+          {loading ? "جاري المعالجة..." : "رفع ونشر مباشرة"}
         </button>
       </div>
 
