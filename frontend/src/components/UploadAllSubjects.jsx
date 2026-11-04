@@ -103,6 +103,14 @@ export default function UploadAllSubjects({ onDone }) {
       }
 
       const saved = await requestConfirm(data.students, true);
+            if (!saved.saved) {
+        setResult(saved);
+        showNotification(
+          `لم يُحفظ أي طالب (تم تخطي ${saved.skipped}). تأكد من تطابق الأسماء مع المسجّلين أو فعّل إنشاء الحسابات تلقائياً`,
+          "error"
+        );
+        return;
+      }
       setResult(saved);
       setPreview(null);
       resetFile();
