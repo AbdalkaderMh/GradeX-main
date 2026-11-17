@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import Student from "../models/Student.js";
 import Teacher from "../models/Teacher.js";
 import Settings from "../models/Settings.js";
-import { parseExcel, parseExcelMulti } from "../utils/excelParser.js";
+import { parseExcel, parseExcelMulti, parseNamesOnly } from "../utils/excelParser.js";
 import { generateUsername } from "../utils/idGenerator.js";
 import { normalizeArabic } from "../utils/textUtils.js";
 import Notification from "../models/Notification.js";
@@ -344,7 +344,7 @@ export const uploadGrades = async (req, res) => {
 export const bulkCreatePreview = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ message: "File required" });
-        const { students, meta, errors } = parseExcel(req.file.buffer, { filename: req.file.originalname });
+        const { students, meta, errors } = parseNamesOnly(req.file.buffer, { filename: req.file.originalname });
 
         const enriched = await Promise.all(students.map(async (s) => {
             const norm = normalizeArabic(s.name);
@@ -412,7 +412,7 @@ export const bulkCreateStudents = async (req, res) => {
         if (!req.file) return res.status(400).json({ message: "File required" });
 
         const { grade, department, section } = req.body;
-        const { students, meta, errors } = parseExcel(req.file.buffer, { filename: req.file.originalname });
+        const { students, meta, errors } = parseNamesOnly(req.file.buffer, { filename: req.file.originalname });
 
         if (errors.length && students.length === 0) return res.status(400).json({ errors });
 
