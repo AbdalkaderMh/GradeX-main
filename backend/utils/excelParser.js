@@ -234,3 +234,70 @@ export function parseExcelMulti(buffer, options = {}) {
     return { students: [], subjectNames: [], meta, errors: [`فشل قراءة الملف: ${err.message}`] };
   }
 }
+
+/**
+ * Parses an Excel file for ACCOUNT CREATION only.
+ * Reads the student-name column and IGNORES every other column (grades, notes...).
+ * A student is accepted even when the grade cell is empty.
+ * Returns: { students: [{ name }], meta, errors }
+ */
+export function parseNamesOnly(buffer, options = {}) {
+  const { filename } = options;
+  const meta = extractMetadataFromFilename(filename);
+
+  try {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      return { students: [], meta, errors: ["الملف لا يحتوي على أوراق"] };
+    }
+
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
+
+    const isNameCell = (cell) => {
+      const norm = normalizeArabic(cell);
+      return norm === "اسم الطالب" || norm === "الاسم" || (norm.includes("اسم") && norm.includes("طالب"));
+    };
+
+    const headerRowIdx = rows.findIndex(row => row && row.some(isNameCell));
+    if (headerRowIdx === -1) {
+      return { students: [], meta, errors: ["لم يتم العثور على عمود اسم الطالب"] };
+    }
+    const nameCol = rows[headerRowIdx].findIndex(isNameCell);
+
+    const students = [];
+    const errors = [];
+    const seen = new Set();
+
+    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+
+      const rawName = row[nameCol];
+      if (rawName === null || rawName === undefined) continue;
+
+      // collapse repeated spaces and trim ("احمد  علي " -> "احمد علي")
+      const name = rawName.toString().replace(/\s+/g, " ").trim();
+      if (name === "") continue;
+
+      // a bare number or a formula result is not a name
+      if (typeof rawName === "number" || /^[\d\s.]+$/.test(name) || name.startsWith("=")) {
+        errors.push(`الصف ${i + 1}: قيمة غير صالحة كاسم طالب (${name})`);
+        continue;
+      }
+
+      const key = normalizeArabic(name);
+      if (seen.has(key)) {
+        errors.push(`الصف ${i + 1}: الاسم مكرر داخل الملف (${name})`);
+        continue;
+      }
+      seen.add(key);
+
+      students.push({ name });
+    }
+
+    return { students, meta, errors };
+  } catch (err) {
+    return { students: [], meta, errors: [`فشل قراءة الملف: ${err.message}`] };
+  }
+}
