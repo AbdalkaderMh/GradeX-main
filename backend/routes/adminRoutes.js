@@ -114,73 +114,30 @@ router.get("/export-teachers", protect, adminOnly, async (req, res) => {
   }
 });
 
-// Reset every teacher's password and return the new ones (shown once, then exported to Excel)
-router.post("/reset-teacher-passwords", protect, adminOnly, async (req, res) => {
+// ---- Sync teachers: create accounts ONLY for new teachers, never touch existing ones ----
+const normalizeName = (s = "") =>
+  String(s)
+    .replace(/[\u064B-\u0652\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const splitSubjects = (value) =>
+  (Array.isArray(value) ? value : String(value || "").split(/[,،\/]/))
+    .map((s) => String(s).trim())
+    .filter(Boolean);
+
+router.post("/sync-teachers", protect, adminOnly, async (req, res) => {
   try {
-    if (req.body.confirm !== "تأكيد") {
-      return res.status(400).json({ success: false, message: "لم يتم التأكيد" });
+    const incoming = Array.isArray(req.body.teachers) ? req.body.teachers : [];
+    if (incoming.length === 0) {
+      return res.status(400).json({ success: false, message: "لا توجد بيانات معلمين" });
     }
 
     // no look-alike characters (0/O, 1/l/I)
     const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const makePassword = () =>
-      Array.from({ length: 8 }, () => chars[crypto.randomInt(chars.length)]).join("");
-
-    const teachers = await Teacher.find().lean();
-    const accounts = [];
-
-    for (const t of teachers) {
-      const user = await User.findById(t.userId);
-      if (!user || user.role !== "teacher") continue;
-
-      const newPassword = makePassword();
-      user.password = newPassword;            // hashed automatically by the User model on save
-      user.requiresPasswordChange = true;     // teacher must choose their own password at first login
-      user.tokenVersion = (user.tokenVersion || 0) + 1; // logs out old sessions
-      user.loginAttempts = 0;
-      user.lockUntil = undefined;
-      await user.save();
-
-      accounts.push({
-        name: user.name,
-        username: user.username,
-        subjects: (t.subjects || []).join("، "),
-        password: newPassword,
-      });
-    }
-
-    res.json({ success: true, accounts });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
-  }
-});
-
-// Start a new academic year: delete all students and their accounts
-router.post("/new-year", protect, adminOnly, async (req, res) => {
-  try {
-    if (req.body.confirm !== "حذف") {
-      return res.status(400).json({ success: false, message: "لم يتم التأكيد" });
-    }
-
-    const studentUsers = await User.find({ role: "student" }).select("_id").lean();
-    const ids = studentUsers.map((u) => u._id);
-
-    const studentsResult = await Student.deleteMany({ userId: { $in: ids } });
-    const orphansResult = await Student.deleteMany({
-      userId: { $nin: (await User.find({}).select("_id").lean()).map((u) => u._id) },
-    });
-    const usersResult = await User.deleteMany({ role: "student" });
-
-    res.json({
-      success: true,
-      deletedUsers: usersResult.deletedCount,
-      deletedStudents: studentsResult.deletedCount + orphansResult.deletedCount,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
-  }
-});
-
-export default router;
+      Array.from({ length: 8 }, () =>
