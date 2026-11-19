@@ -5,6 +5,7 @@ import AuditLog from "../models/Auditlog.js";
 import XLSX from "xlsx";
 import { randomBytes } from "crypto";
 import { sortSubjects } from "../utils/sortSubjects.js";
+
 /**
  * GET ALL STUDENTS (Admin) - Optimized with Aggregation
  */
@@ -64,7 +65,10 @@ export const getStudents = async (req, res) => {
 
       const results = await Student.aggregate(pipeline);
       const total = results[0].metadata[0]?.total || 0;
-      const students = results[0].data;
+      const students = results[0].data.map((s) => ({
+        ...s,
+        subjects: sortSubjects(s.subjects),
+      }));
 
       res.json({
         students,
@@ -96,8 +100,10 @@ export const getStudents = async (req, res) => {
         // Optimized rank calculation: use the already fetched and sorted full list for the given query
         const studentsWithRank = paginated.map((s) => {
             const rank = sorted.findIndex(item => item.average <= s.average) + 1;
+            const obj = s.toObject();
             return {
-                ...s.toObject(),
+                ...obj,
+                subjects: sortSubjects(obj.subjects),
                 name: s.userId.name,
                 username: s.userId.username,
                 requiresPasswordChange: s.userId.requiresPasswordChange,
@@ -166,14 +172,6 @@ export const getStudents = async (req, res) => {
 
         await student.save();
 
-        await AuditLog.create({
-            actor: req.user._id,
-            actorName: req.user.name,
-            actorRole: req.user.role,
-            action: "update_student",
-            target: `الطالب: ${name}`,
-            details: { grade, department, section }
-        });
         res.json(student);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -344,7 +342,7 @@ export const getSharedResult = async (req, res) => {
         grade: student.grade,
         department: student.department,
         section: student.section,
-        subjects: student.subjects,
+        subjects: sortSubjects(student.subjects),
         total: student.total,
         average: student.average,
         academicYear: student.academicYear,
