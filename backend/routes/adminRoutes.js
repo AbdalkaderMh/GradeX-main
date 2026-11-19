@@ -1,9 +1,11 @@
 import express from "express";
 import multer from "multer";
 import crypto from "crypto";
+import XLSX from "xlsx";
 import User from "../models/User.js";
 import Student from "../models/Student.js";
 import Teacher from "../models/Teacher.js";
+import { generateUsername } from "../utils/idGenerator.js";
 import {
     uploadGrades,
     uploadPreview,
@@ -140,4 +142,66 @@ router.post("/sync-teachers", protect, adminOnly, async (req, res) => {
     // no look-alike characters (0/O, 1/l/I)
     const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const makePassword = () =>
-      Array.from({ length: 8 }, () =>
+      Array.from({ length: 8 }, () => chars[crypto.randomInt(chars.length)]).join("");
+
+    const existingUsers = await User.find({ role: "teacher" }).select("name");
+    const known = new Set(existingUsers.map((u) => normalizeName(u.name)));
+
+    const created = [];
+
+    for (const row of incoming) {
+      const name = String(row.name || "").trim();
+      if (!name) continue;
+      const key = normalizeName(name);
+      if (known.has(key)) continue; // أستاذ قديم: يُتجاهل تماماً
+
+      const subjects = splitSubjects(row.subjects);
+      const password = makePassword();
+      const username = await generateUsername("teacher");
+
+      const user = await User.create({
+        name,
+        username,
+        password,
+        role: "teacher",
+        status: "approved",
+        requiresPasswordChange: true,
+      });
+      await Teacher.create({ userId: user._id, subjects });
+
+      known.add(key); // يمنع تكرار الاسم نفسه داخل الملف
+      created.push({ name, username, password, subjects: subjects.join("، ") });
+    }
+
+    if (created.length === 0) {
+      return res.json({ success: true, created: 0, message: "لا يوجد معلمون جدد" });
+    }
+
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    const ws = XLSX.utils.json_to_sheet(
+      created.map((c, i) => ({
+        "#": i + 1,
+        "الاسم": c.name,
+        "اسم المستخدم": c.username,
+        "كلمة المرور": c.password,
+        "المواد": c.subjects,
+      }))
+    );
+    ws["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 18 }, { wch: 16 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, ws, "حسابات جديدة");
+
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", 'attachment; filename="new-teachers.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
+  }
+});
+
+export default router;
