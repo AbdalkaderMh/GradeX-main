@@ -140,21 +140,31 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCredentials = async () => {
-    try {
-      const res = await api.get("/admin/export-students", {
-        params: { grade: selectedGrade, department: selectedDept },
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'student_credentials.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      showNotification("فشل تحميل ملف البيانات", "error");
+  const handleExportTeachers = async () => {
+  try {
+    const res = await api.get("/admin/export-teachers");
+    const list = res.data.teachers || [];
+
+    if (!list.length) {
+      showNotification("لا يوجد معلمون للتصدير", "info");
+      return;
     }
+
+    const rows = list.map((t) => ({
+      "الاسم": t.name,
+      "اسم المستخدم": t.username,
+      "المادة": t.subjects,
+      "الحالة": t.status,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+    XLSX.writeFile(wb, "teachers.xlsx");
+  } catch (err) {
+    showNotification("فشل تصدير بيانات المعلمين", "error");
+  }
+};
   };
 
   const handleConfirmUpload = async (publish = false) => {
