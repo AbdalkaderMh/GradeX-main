@@ -183,6 +183,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResetTeacherPasswords = async () => {
+    const ok = window.confirm(
+      "سيتم تغيير كلمة مرور جميع المعلمين إلى كلمات جديدة، وتسجيل خروجهم من أجهزتهم.\nهل تريد المتابعة؟"
+    );
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/admin/reset-teacher-passwords", { confirm: "تأكيد" });
+      const list = res.data.accounts || [];
+      if (!list.length) {
+        showNotification("لا يوجد معلمون", "info");
+        return;
+      }
+      const rows = list.map((t) => ({
+        "الاسم": t.name,
+        "اسم المستخدم": t.username,
+        "المادة": t.subjects,
+        "كلمة المرور": t.password,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+      XLSX.writeFile(wb, "teachers_credentials.xlsx");
+      showNotification(`تم تجديد كلمات مرور ${list.length} معلم وتنزيل الملف`, "success");
+    } catch (err) {
+      showNotification(err.response?.data?.message || "فشل تجديد كلمات المرور", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConfirmUpload = async (publish = false) => {
     if (!previewData || !previewData.students.length) return;
     setLoading(true);
@@ -451,6 +482,14 @@ export default function AdminDashboard() {
             <span className="material-symbols-outlined text-sm">groups</span>
             <span className="hidden sm:inline text-nowrap">تصدير المعلمين</span>
             <span className="sm:hidden text-xs text-nowrap">معلمون</span>
+          </button>
+          <button
+            onClick={handleResetTeacherPasswords}
+            className="flex-1 lg:flex-none px-4 lg:px-6 py-2 rounded-xl bg-amber-100 text-amber-800 font-bold hover:bg-amber-200 transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">key</span>
+            <span className="hidden sm:inline text-nowrap">كلمات مرور المعلمين</span>
+            <span className="sm:hidden text-xs text-nowrap">كلمات المرور</span>
           </button>
           <button
             onClick={() => setShowNewYear(true)}
