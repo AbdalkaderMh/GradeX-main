@@ -4,7 +4,7 @@ import Teacher from "../models/Teacher.js";
 import AuditLog from "../models/Auditlog.js";
 import XLSX from "xlsx";
 import { randomBytes } from "crypto";
-
+import { sortSubjects } from "../utils/sortSubjects.js";
 /**
  * GET ALL STUDENTS (Admin) - Optimized with Aggregation
  */
