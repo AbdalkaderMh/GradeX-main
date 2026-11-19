@@ -24,6 +24,8 @@ export default function AdminDashboard() {
   const [bulkPreview, setBulkPreview] = useState(null);
   const [autoCreate, setAutoCreate] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showNewYear, setShowNewYear] = useState(false);
+  const [newYearConfirm, setNewYearConfirm] = useState("");
 
   useEffect(() => {
     fetchStats();
@@ -175,6 +177,28 @@ export default function AdminDashboard() {
       fetchStats();
     } catch (err) {
       showNotification("فشل تأكيد الرفع", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewYear = async () => {
+    if (newYearConfirm !== "حذف") return;
+    setLoading(true);
+    try {
+      const res = await api.post("/admin/new-year", { confirm: newYearConfirm });
+      showNotification(
+        `تم حذف ${res.data.deletedUsers} حساب طالب. السنة الجديدة جاهزة.`,
+        "success"
+      );
+      setShowNewYear(false);
+      setNewYearConfirm("");
+      setPreviewData(null);
+      setBulkPreview(null);
+      setFile(null);
+      fetchStats();
+    } catch (err) {
+      showNotification(err.response?.data?.message || "فشل بدء السنة الجديدة", "error");
     } finally {
       setLoading(false);
     }
@@ -395,6 +419,14 @@ export default function AdminDashboard() {
             <span className="sm:hidden text-xs text-nowrap">تصدير</span>
           </button>
           <button
+            onClick={() => setShowNewYear(true)}
+            className="flex-1 lg:flex-none px-4 lg:px-6 py-2 rounded-xl bg-red-100 text-red-700 font-bold hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">event_repeat</span>
+            <span className="hidden sm:inline text-nowrap">سنة دراسية جديدة</span>
+            <span className="sm:hidden text-xs text-nowrap">سنة جديدة</span>
+          </button>
+          <button
             onClick={() => handleConfirmUpload(false)}
             disabled={loading || !previewData}
             className={`flex-1 lg:flex-none px-4 lg:px-6 py-2 rounded-xl bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors disabled:opacity-50 text-xs sm:text-sm text-nowrap`}
@@ -601,6 +633,54 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {showNewYear && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-on-surface/20 backdrop-blur-sm p-4 lg:p-6">
+          <div className="bg-surface-container-lowest rounded-3xl oceanic-shadow w-full max-w-md overflow-hidden">
+            <div className="px-8 py-6 bg-red-600 text-white flex items-center justify-between">
+              <h3 className="text-xl font-bold font-headline">بدء سنة دراسية جديدة</h3>
+              <button
+                onClick={() => { setShowNewYear(false); setNewYearConfirm(""); }}
+                className="p-2 hover:bg-white/20 rounded-full"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-6 lg:p-8 space-y-5">
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                سيتم حذف <span className="font-bold text-red-600">جميع حسابات الطلاب ودرجاتهم</span> نهائياً.
+                حسابات المدير والمعلمين لن تتأثر. لا يمكن التراجع عن هذا الإجراء.
+              </p>
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-on-surface-variant">
+                  اكتب كلمة (حذف) للتأكيد
+                </label>
+                <input
+                  className="w-full px-4 py-3 bg-surface-container-low rounded-xl focus-glow"
+                  value={newYearConfirm}
+                  onChange={(e) => setNewYearConfirm(e.target.value)}
+                  placeholder="حذف"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowNewYear(false); setNewYearConfirm(""); }}
+                  className="flex-1 py-3 font-bold text-on-surface-variant hover:bg-surface-container-highest rounded-xl transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handleNewYear}
+                  disabled={newYearConfirm !== "حذف" || loading}
+                  className="flex-[2] py-3 bg-red-600 text-white font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  تأكيد الحذف
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isBulkCreating && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-on-surface/20 backdrop-blur-sm p-4 lg:p-6">
