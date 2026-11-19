@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import crypto from "crypto";
 import User from "../models/User.js";
 import Student from "../models/Student.js";
 import Teacher from "../models/Teacher.js";
@@ -107,6 +108,48 @@ router.get("/export-teachers", protect, adminOnly, async (req, res) => {
       }));
 
     res.json({ success: true, teachers: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
+  }
+});
+
+// Reset every teacher's password and return the new ones (shown once, then exported to Excel)
+router.post("/reset-teacher-passwords", protect, adminOnly, async (req, res) => {
+  try {
+    if (req.body.confirm !== "تأكيد") {
+      return res.status(400).json({ success: false, message: "لم يتم التأكيد" });
+    }
+
+    // no look-alike characters (0/O, 1/l/I)
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const makePassword = () =>
+      Array.from({ length: 8 }, () => chars[crypto.randomInt(chars.length)]).join("");
+
+    const teachers = await Teacher.find().lean();
+    const accounts = [];
+
+    for (const t of teachers) {
+      const user = await User.findById(t.userId);
+      if (!user || user.role !== "teacher") continue;
+
+      const newPassword = makePassword();
+      user.password = newPassword;            // hashed automatically by the User model on save
+      user.requiresPasswordChange = true;     // teacher must choose their own password at first login
+      user.tokenVersion = (user.tokenVersion || 0) + 1; // logs out old sessions
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
+      await user.save();
+
+      accounts.push({
+        name: user.name,
+        username: user.username,
+        subjects: (t.subjects || []).join("، "),
+        password: newPassword,
+      });
+    }
+
+    res.json({ success: true, accounts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
