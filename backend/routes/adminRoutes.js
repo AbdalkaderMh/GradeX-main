@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import User from "../models/User.js";
 import Student from "../models/Student.js";
-
+import Teacher from "../models/Teacher.js";
 import {
     uploadGrades,
     uploadPreview,
@@ -89,6 +89,30 @@ router.get("/export-students", protect, adminOnly, exportStudents);
 router.post("/bulk-publish", protect, adminOnly, bulkUpdatePublishStatus);
 router.delete("/students/:id/subjects/:subjectName", protect, adminOnly, deleteSubjectFromStudent);
 router.get("/audit-logs", protect, adminOnly, getAuditLogs);
+
+// Export teachers with their subjects (data is turned into Excel in the frontend)
+router.get("/export-teachers", protect, adminOnly, async (req, res) => {
+  try {
+    const teachers = await Teacher.find()
+      .populate("userId", "name username status")
+      .lean();
+
+    const rows = teachers
+      .filter((t) => t.userId) // skip teacher records whose account was deleted
+      .map((t) => ({
+        name: t.userId.name,
+        username: t.userId.username,
+        subjects: (t.subjects || []).join("، "),
+        status: t.userId.status === "approved" ? "مفعّل" : "بانتظار الموافقة",
+      }));
+
+    res.json({ success: true, teachers: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
+  }
+});
+
 // Start a new academic year: delete all students and their accounts
 router.post("/new-year", protect, adminOnly, async (req, res) => {
   try {
@@ -115,4 +139,5 @@ router.post("/new-year", protect, adminOnly, async (req, res) => {
     res.status(500).json({ success: false, message: "حدث خطأ في الخادم" });
   }
 });
+
 export default router;
