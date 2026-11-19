@@ -140,31 +140,47 @@ export default function AdminDashboard() {
   };
 
   const handleDownloadCredentials = async () => {
-  const handleExportTeachers = async () => {
-  try {
-    const res = await api.get("/admin/export-teachers");
-    const list = res.data.teachers || [];
-
-    if (!list.length) {
-      showNotification("لا يوجد معلمون للتصدير", "info");
-      return;
+    try {
+      const res = await api.get("/admin/export-students", {
+        params: { grade: selectedGrade, department: selectedDept },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'student_credentials.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      showNotification("فشل تحميل ملف البيانات", "error");
     }
+  };
 
-    const rows = list.map((t) => ({
-      "الاسم": t.name,
-      "اسم المستخدم": t.username,
-      "المادة": t.subjects,
-      "الحالة": t.status,
-    }));
+  const handleExportTeachers = async () => {
+    try {
+      const res = await api.get("/admin/export-teachers");
+      const list = res.data.teachers || [];
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Teachers");
-    XLSX.writeFile(wb, "teachers.xlsx");
-  } catch (err) {
-    showNotification("فشل تصدير بيانات المعلمين", "error");
-  }
-};
+      if (!list.length) {
+        showNotification("لا يوجد معلمون للتصدير", "info");
+        return;
+      }
+
+      const rows = list.map((t) => ({
+        "الاسم": t.name,
+        "اسم المستخدم": t.username,
+        "المادة": t.subjects,
+        "الحالة": t.status,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+      XLSX.writeFile(wb, "teachers.xlsx");
+    } catch (err) {
+      showNotification("فشل تصدير بيانات المعلمين", "error");
+    }
   };
 
   const handleConfirmUpload = async (publish = false) => {
@@ -427,6 +443,14 @@ export default function AdminDashboard() {
             <span className="material-symbols-outlined text-sm">download</span>
             <span className="hidden sm:inline text-nowrap">بيانات الدخول</span>
             <span className="sm:hidden text-xs text-nowrap">تصدير</span>
+          </button>
+          <button
+            onClick={handleExportTeachers}
+            className="flex-1 lg:flex-none px-4 lg:px-6 py-2 rounded-xl bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">groups</span>
+            <span className="hidden sm:inline text-nowrap">تصدير المعلمين</span>
+            <span className="sm:hidden text-xs text-nowrap">معلمون</span>
           </button>
           <button
             onClick={() => setShowNewYear(true)}
