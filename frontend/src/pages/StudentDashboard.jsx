@@ -84,6 +84,7 @@ export default function StudentDashboard() {
   };
 
   if (showCertificate) {
+    console.log(data.subjects.map(s => s.name));
     return (
         <main className="lg:mr-64 pt-24 px-4 lg:px-8 pb-12 min-h-screen bg-surface-container-lowest/20">
             <div className="max-w-6xl mx-auto">
