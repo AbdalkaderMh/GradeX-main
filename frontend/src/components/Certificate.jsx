@@ -1,9 +1,9 @@
 import React from 'react';
-
+import { sortSubjects } from '../utils/sortSubjects';
 const Certificate = ({ student, settings }) => {
   if (!student) return null;
 
-  const subjects = student.subjects || [];
+const subjects = sortSubjects(student.subjects || []);
   const schoolName = settings?.schoolName || "إعدادية هيت المهنية";
   const academicYear = student.academicYear || "2025 - 2026";
 
