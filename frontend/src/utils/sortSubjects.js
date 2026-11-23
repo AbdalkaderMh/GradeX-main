@@ -38,6 +38,6 @@ function rank(subject) {
 }
 
 export function sortSubjects(subjects = []) {
-  console.log("SORT WORKS", subjects.length);
+
   return [...subjects].sort((a, b) => rank(a) - rank(b));
 }
