@@ -6,6 +6,7 @@ import Certificate from "../components/Certificate";
 import EmptyState from "../components/EmptyState";
 import Footer from "../components/Footer";
 import PrintCertificate from "../components/PrintCertificate";
+import { sortSubjects } from "../utils/sortSubjects";
 
 export default function StudentDashboard() {
   const { showNotification } = useNotification();
@@ -21,7 +22,7 @@ export default function StudentDashboard() {
     api.get("/admin/options").then(res => setOptions(res.data)).catch(() => {});
     api.get("/student/me")
       .then((res) => {
-        setData(res.data);
+        setData({ ...res.data, subjects: sortSubjects(res.data.subjects || []) });
       })
       .catch(err => {
         console.error("Failed to fetch student data", err);
@@ -30,7 +31,6 @@ export default function StudentDashboard() {
         setLoading(false);
       });
   }, []);
-
   if (loading) {
     return (
       <main className="lg:mr-64 pt-24 px-4 lg:px-8 pb-12 min-h-screen">
