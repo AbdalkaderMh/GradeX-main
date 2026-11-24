@@ -1,40 +1,32 @@
-const SUBJECT_ORDER = [
-  "التربية الإسلامية",
-  "اللغة العربية",
-  "اللغة الإنجليزية",
-  "الرياضيات",
-  "تطبيقات",
-  "الاتصالات",
-  "الاساسيات",
-  "المبادئ",
+const KEYS = [
+  "اسلام",   // التربية الإسلامية
+  "عرب",     // اللغة العربية
+  "نجليز",   // اللغة الإنجليزية
+  "رياض",    // الرياضيات
+  "تطبيق",   // تطبيقات
+  "اتصال",   // الاتصالات
+  "اساس",    // الاساسيات
+  "مبادي",   // المبادئ
 ];
 
-const normalize = (s = "") =>
+const clean = (s = "") =>
   String(s)
     .replace(/[\u064B-\u0652\u0640\u200B-\u200F\u202A-\u202E\uFEFF]/g, "")
     .replace(/[أإآٱ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/[ىئی]/g, "ي")
     .replace(/ؤ/g, "و")
-    .replace(/ک/g, "ك")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .map((w) => w.replace(/^ال(?=.{2,})/, "").replace(/^ا(?=.{3,})/, ""))
-    .join(" ");
-
-const ORDER = SUBJECT_ORDER.map(normalize);
+    .replace(/ک/g, "ك");
 
 const getName = (s) =>
   typeof s === "string"
     ? s
     : s?.name ?? s?.subjectName ?? s?.subject?.name ?? s?.title ?? "";
 
-
 function rank(subject) {
-  const n = normalize(getName(subject));
-  const i = ORDER.findIndex((o) => ` ${n} `.includes(` ${o} `));
-  return i === -1 ? ORDER.length : i;
+  const n = clean(getName(subject));
+  const i = KEYS.findIndex((k) => n.includes(k));
+  return i === -1 ? KEYS.length : i;
 }
 
 export function sortSubjects(subjects = []) {
