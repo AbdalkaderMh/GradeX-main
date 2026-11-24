@@ -1,9 +1,10 @@
 import React from 'react';
 import { sortSubjects } from '../utils/sortSubjects';
+
 const Certificate = ({ student, settings }) => {
   if (!student) return null;
 
-const subjects = sortSubjects(student.subjects || []);
+  const subjects = sortSubjects(student.subjects || []);
   const schoolName = settings?.schoolName || "إعدادية هيت المهنية";
   const academicYear = student.academicYear || "2025 - 2026";
 
@@ -68,6 +69,9 @@ const subjects = sortSubjects(student.subjects || []);
               </h2>
           </div>
       </div>
+
+      {/* سطر فحص مؤقت: احذفه بعد معرفة أسماء المواد */}
+      <p style={{ fontSize: 14, background: '#fff' }}>v2: {subjects.map(s => JSON.stringify(s.name)).join(' | ')}</p>
 
       {/* Table Section */}
       <div className="border-2 border-black rounded-lg overflow-hidden bg-white/10">
